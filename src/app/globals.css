@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #e8eee9;
+  --color-secondary-foreground: #244232;
+  --color-muted: #eef0ee;
+  --color-muted-foreground: #5c665f;
+  --color-accent: #e8eee9;
+  --color-accent-foreground: #244232;
+  --color-destructive: #b42318;
+  --color-border: #dce2dc;
+  --color-input: #dce2dc;
+  --color-ring: #326447;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --font-sans: Arial, Helvetica, sans-serif;
+}
+:root { --background: #f8f9f6; --foreground: #1f2b23; --card: #ffffff; --primary: #29583e; }
+@layer base {
+  * { @apply border-border; }
+  a, button { @apply outline-offset-4; }
+  a:focus-visible, button:focus-visible { @apply outline-2 outline-ring; }
+}

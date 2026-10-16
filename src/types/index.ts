@@ -1,0 +1,15 @@
+import type { z } from "zod";
+import type * as schemas from "@/schemas/profile";
+export type { ProfessionalProfile } from "@/schemas/profile";
+export type ProfessionalFact = z.infer<typeof schemas.factSchema>;
+export type PersonalInfo = z.infer<typeof schemas.personalInfoSchema>;
+export type WorkExperience = z.infer<typeof schemas.workExperienceSchema>;
+export type Education = z.infer<typeof schemas.educationSchema>;
+export type Skill = z.infer<typeof schemas.skillSchema>;
+export type Project = z.infer<typeof schemas.projectSchema>;
+export type Certification = z.infer<typeof schemas.certificationSchema>;
+export type Award = z.infer<typeof schemas.awardSchema>;
+export type Publication = z.infer<typeof schemas.publicationSchema>;
+export type VolunteerExperience = z.infer<typeof schemas.volunteerExperienceSchema>;
+export type Language = z.infer<typeof schemas.languageSchema>;
+export type Membership = z.infer<typeof schemas.membershipSchema>;
