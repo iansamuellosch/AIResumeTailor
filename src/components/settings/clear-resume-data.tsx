@@ -15,7 +15,7 @@ export function ClearResumeData() {
       await deleteAllLocalData(getDatabase());
       // Reload so every cached component starts from the empty database.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- A full reload clears cached local profile state after deletion.
-      window.location.assign("/");
+      window.location.assign("/profile");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not clear resume data. Please try again.");
       setBusy(false);

@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { ProfessionalProfile } from "../src/schemas/profile";
 
+async function openProfile(page: Page) {
+  await page.goto("/profile");
+  const manual = page.getByRole("button", { name: "Create draft manually" });
+  await expect(manual.or(page.getByLabel("Full name", { exact: true }))).toBeVisible();
+  if (await manual.isVisible()) await manual.click();
+}
 async function openSection(page: Page, name: string) {
   const jump = page.locator("summary").filter({ hasText: "Jump to section" });
   await expect(jump).toBeAttached();
@@ -26,7 +32,7 @@ async function readProfiles(page: Page) {
 }
 
 test("employment facts keep their IDs across edits, reordering, and approval", async ({ page }) => {
-  await page.goto("/profile");
+  await openProfile(page);
   await page.getByLabel("Full name", { exact: true }).fill("Alex Doe");
   await page.getByLabel("Professional headline", { exact: true }).fill("Software Engineer");
   await openSection(page, "Work experience");
@@ -78,7 +84,7 @@ test("all optional profile sections can be added, saved, reopened, and removed",
   test.setTimeout(60_000);
   let aiRequests = 0;
   await page.route("**/api/**", () => { aiRequests++; });
-  await page.goto("/profile");
+  await openProfile(page);
   await page.getByLabel("Full name", { exact: true }).fill("Alex Doe");
   await page.getByLabel("Email", { exact: true }).fill("alex@example.com");
   await page.getByRole("button", { name: "Add website", exact: true }).click();
@@ -150,7 +156,7 @@ test("all optional profile sections can be added, saved, reopened, and removed",
 });
 
 test("autosaves unfinished fields but blocks approval until errors are corrected", async ({ page }) => {
-  await page.goto("/profile");
+  await openProfile(page);
   await expect(page.getByLabel("Full name", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
   await expect(page.getByLabel("Full name", { exact: true })).toHaveAttribute("aria-invalid", "true");
@@ -187,15 +193,16 @@ test("navigation saves pending changes and the dashboard requires approval", asy
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Approve your profile first" })).toBeVisible();
   await page.getByRole("link", { name: "Review profile", exact: true }).click();
+  await page.getByRole("button", { name: "Create draft manually" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Pending Navigation");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/settings$/);
-  await page.goto("/profile");
+  await openProfile(page);
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Pending Navigation");
 });
 
 test("detects changes from a second tab without overwriting them", async ({ page, context }) => {
-  await page.goto("/profile");
+  await openProfile(page);
   await expect(page.getByLabel("Full name", { exact: true })).toBeVisible();
   const other = await context.newPage();
   await other.goto("/profile");

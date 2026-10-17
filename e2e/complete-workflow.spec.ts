@@ -14,8 +14,11 @@ test("upload, approve, tailor, edit, validate, export both formats, and recover 
   await page.route("**/api/analyze-job", (route) => route.fulfill({ json: { success: true, data: { jobAnalysis: input.jobAnalysis } } }));
   await page.route("**/api/generate-resume", async (route) => { const body = { ...route.request().postDataJSON(), jobAnalysis: input.jobAnalysis }; const resume = assembleResume(body, selectEvidence(body.profile, body.jobAnalysis, body.settings), selection()); await route.fulfill({ json: { success: true, data: { resume } } }); });
   await page.route("**/api/validate-resume", async (route) => { const { resume } = route.request().postDataJSON(); await route.fulfill({ json: { success: true, data: { resume: { ...resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } }); });
-  await page.goto("/"); await page.getByLabel("Choose a resume file").setInputFiles("e2e/fixtures/resume.pdf");
+  await page.goto("/");
+  await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
+  await page.getByLabel("Choose a resume file").setInputFiles("e2e/fixtures/resume.pdf");
   await expect(page).toHaveURL(/\/profile$/, { timeout: 45000 });
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
   const jump = page.locator("summary").filter({ hasText: "Jump to section" });
   if (await jump.isVisible()) await jump.click();
   await page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", { name: /^Work experience/ }).click();

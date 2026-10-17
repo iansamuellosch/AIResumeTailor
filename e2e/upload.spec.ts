@@ -32,8 +32,9 @@ for (const extension of ["pdf", "docx"]) {
     await page.reload();
     await expect(page.getByLabel("Professional headline", { exact: true })).toHaveValue("Frontend Engineer");
     await page.goto("/");
-    await expect(page.getByText(`Saved locally: resume.${extension}`, { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Continue reviewing draft" })).toBeVisible();
+    await expect(page).toHaveURL(/\/profile$/);
+    await expect(page.getByLabel("Professional headline", { exact: true })).toHaveValue("Frontend Engineer");
+    await expect(page.getByLabel("Choose a resume file")).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 }
@@ -52,6 +53,7 @@ test("preserves a failed upload for retry after reload", async ({ page }) => {
   await page.reload();
   await page.getByRole("button", { name: "Retry saved resume" }).click();
   await expect(page).toHaveURL(/\/profile$/, { timeout: 45_000 });
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
   expect(attempts).toBe(2);
 });
 
@@ -95,13 +97,30 @@ test("asks before replacing a resume and preserves the approved profile", async 
   }, approved);
   await page.reload();
   await expect(page.getByRole("link", { name: "Continue to Dashboard" })).toBeVisible();
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
+  await expect(page.getByLabel("Choose a resume file")).toHaveCount(0);
+  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Approved profile saved locally.");
+  expect(await page.evaluate(async () => new Promise<number>((resolve, reject) => {
+    const open = indexedDB.open("ai-resume-tailor");
+    open.onsuccess = () => {
+      const db = open.result; const count = db.transaction("profileDrafts").objectStore("profileDrafts").count();
+      count.onsuccess = () => { db.close(); resolve(count.result); }; count.onerror = () => reject(count.error);
+    };
+  }))).toBe(0);
+  await page.getByRole("button", { name: "Replace resume", exact: true }).click();
+  await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByLabel("Choose a resume file").setInputFiles(fixture("docx"));
   expect(calls).toBe(0);
   await expect(page.getByText("Saved locally:", { exact: false })).toHaveCount(0);
+  await page.getByRole("button", { name: "Back to profile", exact: true }).click();
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
+  await page.getByRole("button", { name: "Replace resume", exact: true }).click();
+  await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByLabel("Choose a resume file").setInputFiles(fixture("docx"));
   await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByText("This is an unverified draft.", { exact: false })).toBeVisible();
   const stored = await page.evaluate(async () => new Promise<unknown>((resolve, reject) => {
     const open = indexedDB.open("ai-resume-tailor");
     open.onsuccess = () => {
@@ -113,4 +132,16 @@ test("asks before replacing a resume and preserves the approved profile", async 
   }));
   expect(stored).toEqual(approved);
   expect(calls).toBe(1);
+});
+
+test("replacement saves pending profile edits and cancelling returns to those edits", async ({ page }) => {
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Create draft manually" }).click();
+  await page.getByLabel("Full name", { exact: true }).fill("Pending replacement edits");
+  await page.getByRole("button", { name: "Replace resume", exact: true }).click();
+  await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
+  await page.getByRole("button", { name: "Back to profile", exact: true }).click();
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Pending replacement edits");
+  await page.reload();
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Pending replacement edits");
 });

@@ -17,7 +17,8 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const [savedContent, setSavedContent] = useState(JSON.stringify(session.profile));
-  const [status, setStatus] = useState("Draft saved locally. It has not been verified.");
+  const initialStatus = session.revision.draft ? "Draft saved locally. It has not been verified." : "Approved profile saved locally.";
+  const [status, setStatus] = useState(initialStatus);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -29,7 +30,7 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
       if (conflicted.current) throw new ProfileConflictError();
       if (fingerprint === lastSavedContent.current) {
         dirty.current = JSON.stringify(latest.current) !== fingerprint;
-        if (mounted.current && !dirty.current) setStatus("Draft saved locally. It has not been verified.");
+        if (mounted.current && !dirty.current) setStatus(revision.current.draft ? "Draft saved locally. It has not been verified." : "Approved profile saved locally.");
         return;
       }
       if (mounted.current) { setStatus("Saving draft…"); setError(""); }
@@ -106,6 +107,6 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
   // the current form for status/navigation so a pending deletion is never shown
   // as saved or skipped when the user immediately leaves the page.
   const hasUnsavedChanges = () => JSON.stringify(form.getValues()) !== lastSavedContent.current;
-  const visibleStatus = status === "Draft saved locally. It has not been verified." && JSON.stringify(values) !== savedContent ? "Unsaved changes…" : status;
+  const visibleStatus = (status === "Draft saved locally. It has not been verified." || status === "Approved profile saved locally.") && JSON.stringify(values) !== savedContent ? "Unsaved changes…" : status;
   return { saveDraft, approve, status: visibleStatus, error, conflict, busy, hasUnsavedChanges };
 }

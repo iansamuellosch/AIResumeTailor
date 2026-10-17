@@ -11,7 +11,7 @@ import { validateResumeFile } from "@/lib/parsing/files";
 import { processStoredDocument } from "@/lib/parsing/workflow";
 import type { ProfessionalProfile } from "@/schemas/profile";
 
-export function ResumeUpload() {
+export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const running = useRef(false);
@@ -59,7 +59,7 @@ export function ResumeUpload() {
       if (!saved) throw new Error("Choose a resume file first.");
       setDocument(saved);
       await processStoredDocument(db, saved, draftSnapshot(draft), setBusy);
-      router.push("/profile");
+      if (onComplete) onComplete(); else router.push("/profile");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not process this resume. Please try again."); }
     finally { running.current = false; setBusy(""); if (input.current) input.current.value = ""; }
   }
@@ -69,7 +69,7 @@ export function ResumeUpload() {
     running.current = true;
     setBusy("Creating draft…");
     setError("");
-    try { await createManualDraft(getDatabase(), draftSnapshot(draft)); router.push("/profile"); }
+    try { await createManualDraft(getDatabase(), draftSnapshot(draft)); if (onComplete) onComplete(); else router.push("/profile"); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not create a draft."); }
     finally { running.current = false; setBusy(""); }
   }
@@ -77,7 +77,7 @@ export function ResumeUpload() {
   const disabled = !ready || !!busy || storageFailed;
   return (
     <section aria-labelledby="upload-title" className="space-y-5">
-      {(verified || draft) && (
+      {!onComplete && (verified || draft) && (
         <div className="flex flex-wrap gap-3">
           {verified && <Button asChild variant="outline"><Link href="/dashboard">Continue to Dashboard</Link></Button>}
           <Button asChild variant="outline"><Link href="/profile">{draft ? "Continue reviewing draft" : "Edit Profile"}</Link></Button>
@@ -114,6 +114,7 @@ export function ResumeUpload() {
       <div className="flex flex-wrap gap-3">
         {document && <Button variant="outline" disabled={disabled} onClick={() => void processUpload()}>Retry saved resume</Button>}
         <Button variant="ghost" disabled={disabled} onClick={() => void startManually()}>Create draft manually</Button>
+        {onCancel && <Button variant="outline" disabled={disabled} onClick={onCancel}>Back to profile</Button>}
         {storageFailed && <Button variant="outline" onClick={() => window.location.reload()}>Retry local storage</Button>}
       </div>
     </section>

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { FormProvider, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { profileDraftSchema, type ProfessionalProfile } from "@/schemas/profile";
@@ -14,7 +15,7 @@ import { useProfilePersistence } from "@/hooks/use-profile-persistence";
 import { ProfileField } from "./profile-field";
 import { CollectionEditor } from "./collection-editor";
 
-export function ProfileEditor() {
+export function ProfileEditor({ onReplace }: { onReplace?: () => void }) {
   const [session, setSession] = useState<EditorSession>();
   const [error, setError] = useState("");
   useEffect(() => {
@@ -26,10 +27,10 @@ export function ProfileEditor() {
   }, []);
   if (error) return <div className="space-y-4"><p role="alert" className="text-destructive">{error}</p><Button variant="outline" onClick={() => window.location.reload()}>Retry local storage</Button></div>;
   if (!session) return <p>Loading your profile…</p>;
-  return <EditorForm session={session} />;
+  return <EditorForm session={session} onReplace={onReplace} />;
 }
 
-function EditorForm({ session }: { session: EditorSession }) {
+function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?: () => void }) {
   const router = useRouter();
   const form = useForm<ProfessionalProfile>({ defaultValues: session.profile, resolver: zodResolver(profileDraftSchema), shouldUnregister: false });
   const values = useWatch({ control: form.control }) as ProfessionalProfile;
@@ -103,6 +104,12 @@ function EditorForm({ session }: { session: EditorSession }) {
   return <FormProvider {...form}>
     <div className="grid items-start gap-7 lg:grid-cols-[15rem_minmax(0,1fr)]">
       <aside className="space-y-4 lg:sticky lg:top-6">
+        <div className="flex flex-wrap gap-3">
+          {session.revision.verified && <Button asChild variant="outline"><Link href="/dashboard">Continue to Dashboard</Link></Button>}
+          {onReplace && <Button type="button" variant="outline" disabled={disabled || persistence.conflict} onClick={() => {
+            void persistence.saveDraft().then(onReplace).catch(() => setNavigationError("Save your changes before replacing the resume. Your edits are still here."));
+          }}>Replace resume</Button>}
+        </div>
         <div className="hidden lg:block">{sectionNavigation(false)}</div>
         <details ref={mobileNavigation} className="rounded-xl border bg-card lg:hidden">
           <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Jump to section</summary>
@@ -115,7 +122,7 @@ function EditorForm({ session }: { session: EditorSession }) {
         {persistence.conflict && <Button variant="outline" onClick={() => { if (window.confirm("Reload and discard unsaved edits on this page?")) window.location.reload(); }}>Reload saved profile</Button>}
       </aside>
       <form noValidate onSubmit={form.handleSubmit(saveDraft)} className="min-w-0 space-y-5">
-        <p className="rounded-lg border bg-card p-4 text-sm leading-6">This is an unverified draft. Edits autosave locally. Check the facts in each section before selecting Save &amp; Continue.</p>
+        <p className="rounded-lg border bg-card p-4 text-sm leading-6">{!session.revision.draft && JSON.stringify(values) === JSON.stringify(session.profile) ? "This is your approved profile. Editing creates a separate draft; approve your changes before using them for generation." : "This is an unverified draft. Edits autosave locally. Check the facts in each section before selecting Save & Continue."}</p>
         <fieldset disabled={disabled} className="min-w-0 space-y-5">
           <legend className="sr-only">Professional profile fields</legend>
           {editorSections.map(({ id, title }) => <details key={id} id={`section-${id}`} ref={(element) => { sectionRefs.current[id] = element; }} open={id === "personal" || id === "summary" ? true : undefined} className="scroll-mt-6 rounded-xl border bg-card">

@@ -33,6 +33,8 @@ describe("editable drafts and approval", () => {
     const initial = createEmptyProfile(); initial.personalInfo.fullName = "Alex Doe";
     await saveProfile(db, { ...initial, status: "verified", verifiedAt: initial.updatedAt });
     const session = await openEditorSession(db);
+    expect(await readProfile(db, "draft")).toBeUndefined();
+    expect(session.revision.draft).toBeUndefined();
     expect(session.profile.version).toBe(2);
     expect(session.profile.status).toBe("draft");
     expect(session.profile.verifiedAt).toBeUndefined();
@@ -75,8 +77,9 @@ describe("editable drafts and approval", () => {
     const initial = createEmptyProfile(); initial.personalInfo.fullName = "Alex Doe";
     await saveProfile(db, { ...initial, status: "verified", verifiedAt: initial.updatedAt });
     const session = await openEditorSession(db);
+    const draftSession = await persistEditorProfile(db, { ...session.profile, headline: "Draft headline" }, session.revision);
     const spy = vi.spyOn(db.profiles, "put").mockRejectedValue(new DOMException("Full", "QuotaExceededError"));
-    await expect(persistEditorProfile(db, session.profile, session.revision, true)).rejects.toThrow("storage is full");
+    await expect(persistEditorProfile(db, draftSession.profile, draftSession.revision, true)).rejects.toThrow("storage is full");
     spy.mockRestore();
     expect((await readProfile(db, "verified"))?.version).toBe(1);
     expect((await readProfile(db, "draft"))?.id).toBe(session.profile.id);
@@ -85,8 +88,9 @@ describe("editable drafts and approval", () => {
     const initial = createEmptyProfile(); initial.personalInfo.fullName = "Alex Doe";
     await saveProfile(db, { ...initial, status: "verified", verifiedAt: initial.updatedAt });
     const session = await openEditorSession(db);
+    const draftSession = await persistEditorProfile(db, { ...session.profile, headline: "Draft headline" }, session.revision);
     const spy = vi.spyOn(db.profileDrafts, "delete").mockRejectedValue(new Error("write failed"));
-    await expect(persistEditorProfile(db, { ...session.profile, headline: "New headline" }, session.revision, true)).rejects.toThrow();
+    await expect(persistEditorProfile(db, { ...draftSession.profile, headline: "New headline" }, draftSession.revision, true)).rejects.toThrow();
     spy.mockRestore();
     expect((await readProfile(db, "verified"))?.headline).toBe("");
     expect((await readProfile(db, "verified"))?.version).toBe(1);
@@ -100,6 +104,8 @@ describe("editable drafts and approval", () => {
     await persistEditorProfile(db, saved.profile, saved.revision, true);
     expect((await db.profiles.get("primary"))?.sourceDocumentId).toBe("original-document");
     const editing = await openEditorSession(db);
+    expect(await db.profileDrafts.get("primary")).toBeUndefined();
+    await persistEditorProfile(db, { ...editing.profile, headline: "Edited headline" }, editing.revision);
     expect((await db.profileDrafts.get("primary"))?.sourceDocumentId).toBe("original-document");
     expect(editing.profile.id).toBe(draft.id);
   });
@@ -116,4 +122,13 @@ describe("editable drafts and approval", () => {
     const draft = profileDraftSchema.parse({ ...profile, experience: [collections.experience.create()] });
     expect(profileSectionStatus(draft).experience).toBe("Needs attention");
   });
+});
+
+it("does not reattach an older uploaded source when a replacement draft has no document", async () => {
+  const profile = createEmptyProfile(); profile.personalInfo.fullName = "Approved profile";
+  await db.profiles.put({ key: "primary", profile: { ...profile, status: "verified", verifiedAt: profile.updatedAt }, sourceDocumentId: "old-upload" });
+  await db.profileDrafts.put({ key: "primary", profile: { ...profile, headline: "Manual replacement" } });
+  const session = await openEditorSession(db);
+  await persistEditorProfile(db, session.profile, session.revision, true);
+  expect((await db.profiles.get("primary"))?.sourceDocumentId).toBeUndefined();
 });

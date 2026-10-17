@@ -40,9 +40,15 @@ Drafts and approved profiles have deliberately different validation:
 
 Draft changes autosave after 600 ms through a serialized write queue. **Save Draft** flushes immediately. Application links flush pending edits before navigation; the browser warns before unloading with unsaved work. Wait for the saved status before closing the browser or device. Failed storage writes leave the form intact with a retryable error.
 
-Editing an approved profile creates a separate draft while preserving its IDs and original creation timestamp. The approved copy stays untouched until the next explicit approval. Approval runs in one IndexedDB transaction: validate the complete profile, assign the verification timestamp, increment the approved version, write the approved copy, and remove the reviewed draft. Autosaves are paused/drained before approval so an older pending write cannot recreate that draft. Uploaded-source linkage is preserved. No database-index migration is needed; the existing stores and optional record metadata are reused.
+Opening an approved profile does not write a draft or change its approval. Editing it creates a separate draft while preserving its IDs and original creation timestamp. The approved copy stays untouched until the next explicit approval. Approval runs in one IndexedDB transaction: validate the complete profile, assign the verification timestamp, increment the approved version, write the approved copy, and remove the reviewed draft. Autosaves are paused/drained before approval so an older pending write cannot recreate that draft. Uploaded-source linkage is preserved. No database-index migration is needed; the existing stores and optional record metadata are reused.
 
 Writes compare both draft and approved snapshots inside the transaction. If another tab saves or approves first, the stale editor stops writing and shows a conflict message; it never silently overwrites the newer profile. Reloading after confirmation discards unsaved local edits and loads the stored version. The dashboard requires an approved profile and shows its version. Each generation rereads the latest approved copy; an unreviewed editor draft is never used.
+
+## Profile as the starting page
+
+`/` redirects to `/profile`. Navigation contains Profile, Dashboard, and Settings, and the logo links to Profile. With no saved draft or approved profile, Profile shows resume upload and manual creation. A saved file without a profile stays available for parsing retry after reload. Successful parsing/manual creation switches to the editor on the same page. Existing drafts and approved profiles open directly in the editor.
+
+**Replace resume** saves pending editor changes before opening the upload experience. Parsing a replacement requires confirmation, preserves the approved profile and original files, and creates an unverified draft for review. **Back to profile** returns without replacing information. Approved profiles retain a direct **Continue to Dashboard** action.
 
 ## Milestone 4: job analysis and resume generation
 
