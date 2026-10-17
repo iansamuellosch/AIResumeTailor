@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/errors";
 import { providerError } from "./provider-error";
+import { toGeminiJsonSchema } from "./json-schema";
 
 export async function requestStructured<T>(schema: z.ZodType<T>, instructions: string, data: unknown, signal?: AbortSignal): Promise<T> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -18,7 +19,7 @@ export async function requestStructured<T>(schema: z.ZodType<T>, instructions: s
       model: process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite",
       contents: [{ role: "user", parts: [{ text: JSON.stringify(data) }] }],
       config: {
-        systemInstruction: instructions, responseMimeType: "application/json", responseJsonSchema: z.toJSONSchema(schema),
+        systemInstruction: instructions, responseMimeType: "application/json", responseJsonSchema: toGeminiJsonSchema(schema),
         maxOutputTokens: 16000, abortSignal: controller.signal,
         httpOptions: { timeout: 45_000, retryOptions: { attempts: 1 } },
       },

@@ -30,6 +30,8 @@ Provider deadline errors (408/504) return `AI_TIMEOUT`; access, quota, and rejec
 
 Resume extraction preserves year-only dates as labeled facts in Additional accomplishments; precise date fields still require `YYYY-MM`. Missing months are never guessed. Empty/null optional dates become absent; invalid complete dates still fail validation. Extraction validation diagnostics contain only schema paths and error codes, never extracted values or raw provider output.
 
+Provider JSON schemas omit `maxItems` array caps: the job-analysis schema with those caps produced a reproducible Gemini 400, while the same request without them succeeded. Runtime Zod validation retains every array limit, including for generated content and semantic reviews. Output-size limits and evidence checks remain enforced.
+
 Vercel sets `VERCEL=1`. The limiter accepts client identity only from the Vercel-managed `x-vercel-forwarded-for` header on that platform. Do not substitute arbitrary `X-Forwarded-For` input. Other production hosts need an explicitly trusted proxy implementation before AI endpoints are enabled. Missing configuration, invalid identity, or a Redis error fails closed with a safe 503 response.
 
 All AI routes share 5 HTTP requests per client per 10 minutes and 200 per day globally. A successful tailoring run uses analysis, generation, and validation requests. A validation request makes up to three Gemini calls, including one optional correction/revalidation. The budget therefore bounds calls but is not a fixed monetary cap; set provider quotas appropriate to the deployment. Existing `resume:parse:*` Redis key prefixes are retained across upgrades to preserve active counters. Development-only in-memory limits are not distributed production protection.

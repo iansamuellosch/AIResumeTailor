@@ -5,6 +5,7 @@ import { extractedProfileSchema, extractedDataToDraft } from "@/schemas/parse-re
 import { RESUME_EXTRACTION_INSTRUCTIONS } from "./prompts";
 import { ApiError } from "@/lib/api/errors";
 import { providerError } from "./provider-error";
+import { toGeminiJsonSchema } from "./json-schema";
 
 export async function parseResumeWithGemini(text: string, signal?: AbortSignal) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -22,7 +23,7 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
       config: {
         systemInstruction: RESUME_EXTRACTION_INSTRUCTIONS,
         responseMimeType: "application/json",
-        responseJsonSchema: z.toJSONSchema(extractedProfileSchema),
+        responseJsonSchema: toGeminiJsonSchema(extractedProfileSchema),
         maxOutputTokens: 16000,
         abortSignal: controller.signal,
         httpOptions: { timeout: 45_000, retryOptions: { attempts: 1 } },
