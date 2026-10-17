@@ -13,7 +13,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. Obtain a Gemini API key from Google AI Studio. `GEMINI_MODEL` defaults to `gemini-2.5-flash`; choose a model available to your project that supports structured JSON output. Keys stay server-side and must never use a `NEXT_PUBLIC_` prefix. Restart the server after changing environment variables. Without a key, uploads are still stored locally and can be retried later or replaced with a manual draft; AI parsing returns an understandable configuration error.
+Open http://localhost:3000. Obtain a Gemini API key from Google AI Studio. `GEMINI_MODEL` defaults to `gemini-3.8-flash`; choose a model available to your project that supports structured JSON output. Keys stay server-side and must never use a `NEXT_PUBLIC_` prefix. Restart the server after changing environment variables. Without a key, uploads are still stored locally and can be retried later or replaced with a manual draft; AI parsing returns an understandable configuration error.
 
 `postinstall`, `predev`, and `prebuild` copy the installed PDF.js worker into `public/`. This same-origin generated asset is ignored by Git and rebuilt from the locked dependency version. No CDN is used for document processing.
 

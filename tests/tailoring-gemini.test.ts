@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 const { generate } = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock("@google/genai", () => ({ GoogleGenAI: class { models = { generateContent: generate }; } }));
 import { analyzeJobWithGemini, generateResumeWithGemini } from "@/lib/ai/tailoring";
-beforeEach(() => { vi.stubEnv("GEMINI_API_KEY", "test-only"); generate.mockReset(); });
+beforeEach(() => { vi.stubEnv("GEMINI_API_KEY", "test-only"); vi.stubEnv("GEMINI_MODEL", ""); generate.mockReset(); });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
 const response = (data: unknown) => ({ text: JSON.stringify(data), candidates: [{ finishReason: "STOP" }] });
 describe("Gemini tailoring", () => {
@@ -14,6 +14,8 @@ describe("Gemini tailoring", () => {
     const job = await analyzeJobWithGemini({ jobDescription: "A React engineering position." });
     expect(job.requiredSkills).toContain("React");
     const call = generate.mock.calls[0][0];
+    expect(call.model).toBe("gemini-3.8-flash");
+    expect(call.config).not.toHaveProperty("temperature");
     expect(call.config.responseJsonSchema.type).toBe("object");
     expect(call.config.systemInstruction).toContain("untrusted data");
     expect(call.contents[0].parts[0].text).not.toContain("alex@example.test");
@@ -49,5 +51,11 @@ describe("Gemini tailoring", () => {
   it("does not call Gemini when the caller already cancelled", async () => {
     await expect(generateResumeWithGemini(tailoringInput(), AbortSignal.abort())).rejects.toMatchObject({ code: "AI_TIMEOUT" });
     expect(generate).not.toHaveBeenCalled();
+  });
+  it("preserves configured model overrides and reports retired models safely", async () => {
+    vi.stubEnv("GEMINI_MODEL", " custom-model ");
+    generate.mockRejectedValue({ status: 404, message: "private provider details" });
+    await expect(analyzeJobWithGemini({ jobDescription: "A React engineering position." })).rejects.toMatchObject({ code: "AI_MODEL_UNAVAILABLE", message: expect.not.stringContaining("private provider details") });
+    expect(generate.mock.calls[0][0].model).toBe("custom-model");
   });
 });

@@ -14,11 +14,11 @@ export async function requestStructured<T>(schema: z.ZodType<T>, instructions: s
   try {
     if (controller.signal.aborted) throw new Error("Aborted");
     const result = await new GoogleGenAI({ apiKey }).models.generateContent({
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
       contents: [{ role: "user", parts: [{ text: JSON.stringify(data) }] }],
       config: {
         systemInstruction: instructions, responseMimeType: "application/json", responseJsonSchema: z.toJSONSchema(schema),
-        temperature: 0, maxOutputTokens: 16000, abortSignal: controller.signal,
+        maxOutputTokens: 16000, abortSignal: controller.signal,
         httpOptions: { timeout: 45_000, retryOptions: { attempts: 1 } },
       },
     });
@@ -29,6 +29,7 @@ export async function requestStructured<T>(schema: z.ZodType<T>, instructions: s
   } catch (error) {
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your local data is preserved. Try again.");
     if (error instanceof ApiError) throw error;
+    if (error && typeof error === "object" && "status" in error && error.status === 404) throw new ApiError(502, "AI_MODEL_UNAVAILABLE", "The configured AI model is unavailable. Update GEMINI_MODEL in the server environment and redeploy. Your local data is preserved.");
     throw new ApiError(502, "AI_UNAVAILABLE", "AI processing is unavailable. Your local data is preserved. Try again later.");
   } finally { clearTimeout(timer); signal?.removeEventListener("abort", abort); }
 }

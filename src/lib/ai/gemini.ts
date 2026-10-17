@@ -16,13 +16,12 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const result = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
       contents: [{ role: "user", parts: [{ text: JSON.stringify({ resumeText: text }) }] }],
       config: {
         systemInstruction: RESUME_EXTRACTION_INSTRUCTIONS,
         responseMimeType: "application/json",
         responseJsonSchema: z.toJSONSchema(extractedProfileSchema),
-        temperature: 0,
         maxOutputTokens: 16000,
         abortSignal: controller.signal,
         httpOptions: { timeout: 45_000, retryOptions: { attempts: 1 } },
@@ -35,6 +34,7 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your file is saved locally. Try again.");
+    if (error && typeof error === "object" && "status" in error && error.status === 404) throw new ApiError(502, "AI_MODEL_UNAVAILABLE", "The configured AI model is unavailable. Update GEMINI_MODEL in the server environment and redeploy. Your file is saved locally.");
     throw new ApiError(502, "AI_UNAVAILABLE", "AI processing is unavailable. Your file is saved locally. Try again later or create a draft manually.");
   } finally {
     clearTimeout(timer);
