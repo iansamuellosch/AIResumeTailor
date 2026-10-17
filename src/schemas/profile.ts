@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { skillCategorySchema } from "./skill-categories";
 
 const id = z.string().trim().min(1).max(128);
 const text = z.string().trim().max(10000);
@@ -32,7 +33,7 @@ export const educationSchema = z.object({
 }).refine((entry) => !entry.startDate || !entry.graduationDate || entry.graduationDate >= entry.startDate, { path: ["graduationDate"], message: "Graduation must follow start date" });
 export const skillSchema = z.object({
   id, name: requiredText,
-  category: z.enum(["programming-languages", "frameworks-libraries", "tools-platforms", "databases", "cloud", "professional", "other"]),
+  category: skillCategorySchema,
   proficiency: text.optional(), supportingContext: text.optional(),
 });
 export const projectSchema = z.object({

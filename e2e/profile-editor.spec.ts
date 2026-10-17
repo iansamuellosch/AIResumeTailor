@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import type { ProfessionalProfile } from "../src/schemas/profile";
 
@@ -31,7 +32,7 @@ async function readProfiles(page: Page) {
   }));
 }
 
-test("employment facts keep their IDs across edits, reordering, and approval", async ({ page }) => {
+test("employment facts keep their IDs across edits, removal, and approval without reorder controls", async ({ page }) => {
   await openProfile(page);
   await page.getByLabel("Full name", { exact: true }).fill("Alex Doe");
   await page.getByLabel("Professional headline", { exact: true }).fill("Software Engineer");
@@ -52,17 +53,17 @@ test("employment facts keep their IDs across edits, reordering, and approval", a
   await second.getByLabel("Responsibility 1", { exact: true }).fill("Built a web interface.");
   await saved(page);
   const before = (await readProfiles(page)).draft!;
-  await page.getByRole("button", { name: "Move employment 2 up", exact: true }).click();
-  await second.getByLabel("Responsibility 1", { exact: true }).fill("Integrated REST APIs into production React applications.");
-  await second.getByRole("button", { name: "Add responsibility", exact: true }).click();
-  await second.getByLabel("Responsibility 2", { exact: true }).fill("Maintained application components.");
-  await second.getByRole("button", { name: "Remove responsibility 2", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Move .* (up|down)/ })).toHaveCount(0);
+  await first.getByLabel("Responsibility 1", { exact: true }).fill("Integrated REST APIs into production React applications.");
+  await first.getByRole("button", { name: "Add responsibility", exact: true }).click();
+  await first.getByLabel("Responsibility 2", { exact: true }).fill("Maintained application components.");
+  await first.getByRole("button", { name: "Remove responsibility 2", exact: true }).click();
   await saved(page);
   const after = (await readProfiles(page)).draft!;
-  expect(after.experience.map((entry) => entry.id)).toEqual([before.experience[1].id, before.experience[0].id]);
-  expect(after.experience[1].responsibilities[0].id).toBe(before.experience[0].responsibilities[0].id);
-  expect(after.experience[1].responsibilities[0].text).toContain("production React");
-  expect(after.experience[0].responsibilities[0].text).toBe("Built a web interface.");
+  expect(after.experience.map((entry) => entry.id)).toEqual([before.experience[0].id, before.experience[1].id]);
+  expect(after.experience[0].responsibilities[0].id).toBe(before.experience[0].responsibilities[0].id);
+  expect(after.experience[0].responsibilities[0].text).toContain("production React");
+  expect(after.experience[1].responsibilities[0].text).toBe("Built a web interface.");
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Your profile is ready" })).toBeVisible();
@@ -72,7 +73,7 @@ test("employment facts keep their IDs across edits, reordering, and approval", a
   expect((await readProfiles(page)).draft).toBeUndefined();
   await page.getByRole("link", { name: "Edit approved profile" }).click();
   await openSection(page, "Work experience");
-  await first.getByLabel("Employer", { exact: true }).fill("Company B corrected");
+  await first.getByLabel("Employer", { exact: true }).fill("Company A corrected");
   await saved(page);
   expect((await readProfiles(page)).verified).toEqual(approved);
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
@@ -102,8 +103,10 @@ test("all optional profile sections can be added, saved, reopened, and removed",
   await openSection(page, "Skills");
   await page.getByRole("button", { name: "Add skill", exact: true }).click();
   await page.getByLabel("Skill name", { exact: true }).fill("TypeScript");
-  await page.getByLabel("Category", { exact: true }).selectOption("programming-languages");
-  await page.getByLabel(/^Supporting context/).fill("Used in production web applications.");
+  await page.getByLabel("Category", { exact: true }).click();
+  await page.getByRole("combobox", { name: "Search categories" }).fill("programming");
+  await page.getByRole("option", { name: "Programming languages", exact: true }).click();
+  await page.getByLabel(/^Experience/).fill("Used in production web applications.");
   await openSection(page, "Projects");
   await page.getByRole("button", { name: "Add project", exact: true }).click();
   const project = page.getByRole("group", { name: "Project 1", exact: true });
@@ -213,4 +216,56 @@ test("detects changes from a second tab without overwriting them", async ({ page
   await expect(page.getByRole("button", { name: "Save & Continue", exact: true })).toBeDisabled();
   expect((await readProfiles(page)).draft?.personalInfo.fullName).toBe("Newer Tab Edit");
   await other.close();
+});
+
+test("compact technology inputs and searchable categories preserve edits and support keyboard selection", async ({ page }, testInfo) => {
+  await openProfile(page);
+  await page.getByLabel("Full name", { exact: true }).fill("Alex Doe");
+  await openSection(page, "Work experience");
+  await page.getByRole("button", { name: "Add employment", exact: true }).click();
+  await page.getByLabel("Employer", { exact: true }).fill("Example Company");
+  await page.getByLabel("Job title", { exact: true }).fill("Coordinator");
+  await page.getByLabel("Employment type", { exact: true }).selectOption("Part-time");
+  await page.getByRole("button", { name: "Add technology", exact: true }).click();
+  await expect(page.getByLabel("Technology 1", { exact: true })).toHaveAttribute("type", "text");
+  await page.getByLabel("Technology 1", { exact: true }).fill("Microsoft Excel");
+  await page.getByRole("button", { name: "Add technology", exact: true }).click();
+  await page.getByLabel("Technology 2", { exact: true }).fill("Salesforce");
+  await saved(page);
+  const before = (await readProfiles(page)).draft!;
+  await page.getByRole("button", { name: "Remove technology 1", exact: true }).click();
+  await expect(page.getByLabel("Technology 1", { exact: true })).toHaveValue("Salesforce");
+  await saved(page);
+  await expect.poll(async () => (await readProfiles(page)).draft!.experience[0].technologies[0].id).toBe(before.experience[0].technologies[1].id);
+  await openSection(page, "Skills");
+  await page.getByRole("button", { name: "Add skill", exact: true }).click();
+  await page.getByLabel("Skill name", { exact: true }).fill("Financial reporting");
+  await page.getByLabel("Category", { exact: true }).click();
+  const search = page.getByRole("combobox", { name: "Search categories" });
+  await search.fill("finance");
+  expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  await search.press("ArrowDown"); await search.press("Enter");
+  await expect(page.getByLabel("Category", { exact: true })).toHaveText("Finance & accounting");
+  await page.getByLabel(/^Experience/).fill("Monthly reporting and budget tracking");
+  await page.getByLabel("Category", { exact: true }).click();
+  await page.getByRole("combobox", { name: "Search categories" }).fill("no such category");
+  await expect(page.getByText("No matching categories.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Category", { exact: true })).toHaveText("Finance & accounting");
+  await saved(page);
+  const stored = (await readProfiles(page)).draft!;
+  expect(stored.skills[0].category).toBe("finance-accounting");
+  expect(stored.skills[0].supportingContext).toBe("Monthly reporting and budget tracking");
+  await expect(page.getByRole("button", { name: /Move .* (up|down)/ })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("compact-profile.png"), fullPage: true });
+  await page.locator("#section-skills").screenshot({ path: testInfo.outputPath("compact-skills.png") });
+  await page.locator("#section-experience").screenshot({ path: testInfo.outputPath("compact-employment.png") });
+  await page.reload();
+  await openSection(page, "Skills");
+  await expect(page.getByLabel("Category", { exact: true })).toHaveText("Finance & accounting");
+  await expect(page.getByLabel(/^Experience/)).toHaveValue("Monthly reporting and budget tracking");
+  await openSection(page, "Work experience");
+  await expect(page.getByLabel("Employment type", { exact: true })).toHaveValue("Part-time");
+  await expect(page.getByLabel("Technology 1", { exact: true })).toHaveValue("Salesforce");
 });

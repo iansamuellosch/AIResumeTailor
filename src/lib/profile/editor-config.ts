@@ -1,3 +1,4 @@
+import { skillCategoryOptions } from "@/schemas/skill-categories";
 import type { ProfessionalProfile } from "@/schemas/profile";
 
 export type CollectionName = "experience" | "education" | "skills" | "projects" | "certifications" | "awards" | "publications" | "volunteerExperience" | "languages" | "memberships" | "additionalAccomplishments" | "personalInfo.additionalWebsites";
@@ -5,7 +6,7 @@ export type EntryFor<K extends CollectionName> = K extends "personalInfo.additio
 export interface FieldDefinition {
   key: string;
   label: string;
-  kind?: "textarea" | "month" | "email" | "url" | "select" | "checkbox";
+  kind?: "textarea" | "month" | "email" | "url" | "select" | "checkbox" | "search-select" | "skill-experience";
   optional?: boolean;
   hint?: string;
   options?: { value: string; label: string }[];
@@ -40,7 +41,7 @@ export const collections = {
     name: "experience", title: "Work experience", singular: "employment",
     fields: [
       { key: "employer", label: "Employer" }, { key: "jobTitle", label: "Job title" },
-      { key: "employmentType", label: "Employment type", hint: "For example, full-time or contract. Leave blank if unknown." },
+      { key: "employmentType", label: "Employment type", kind: "select", options: [{ value: "", label: "Unspecified" }, ...["Full-time", "Part-time", "Contract", "Temporary", "Internship", "Apprenticeship", "Freelance", "Self-employed", "Volunteer", "Other"].map((value) => ({ value, label: value }))] },
       { key: "location", label: "Location" },
       { key: "workArrangement", label: "Work arrangement", kind: "select", options: [{ value: "unspecified", label: "Unspecified" }, { value: "onsite", label: "On-site" }, { value: "hybrid", label: "Hybrid" }, { value: "remote", label: "Remote" }] },
       { key: "currentlyEmployed", label: "Currently employed", kind: "checkbox" }, ...dateFields,
@@ -56,9 +57,8 @@ export const collections = {
   }),
   skills: defineCollection({
     name: "skills", title: "Skills", singular: "skill",
-    fields: [{ key: "name", label: "Skill name" }, { key: "category", label: "Category", kind: "select", options: [
-      { value: "programming-languages", label: "Programming languages" }, { value: "frameworks-libraries", label: "Frameworks and libraries" }, { value: "tools-platforms", label: "Tools and platforms" }, { value: "databases", label: "Databases" }, { value: "cloud", label: "Cloud technologies" }, { value: "professional", label: "Professional skills" }, { value: "other", label: "Other" },
-    ] }, { key: "proficiency", label: "Proficiency", optional: true, hint: "Optional. Describe only a level you can support." }, { key: "supportingContext", label: "Supporting context", kind: "textarea", optional: true }],
+    fields: [{ key: "name", label: "Skill name" }, { key: "category", label: "Category", kind: "search-select", options: [...skillCategoryOptions] },
+      { key: "supportingContext", label: "Experience", kind: "skill-experience", optional: true }],
     create: () => ({ ...identity(), name: "", category: "other" }),
   }),
   projects: defineCollection({
