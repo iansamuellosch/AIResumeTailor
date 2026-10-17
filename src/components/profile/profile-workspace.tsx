@@ -33,10 +33,10 @@ export function ProfileWorkspace() {
   if (hasProfile === undefined) return <p role="status">Loading your profile…</p>;
   const showUpload = !hasProfile || replacing;
   return <div className={showUpload ? "mx-auto flex max-w-xl flex-col gap-8" : "space-y-7"}>
-    <div className="max-w-3xl space-y-3">
+    {showUpload && <div className="max-w-3xl space-y-3">
       <h1 className="text-3xl font-semibold tracking-tight">Your professional profile</h1>
-      <p className="leading-7 text-muted-foreground">{showUpload ? "Start with your existing resume, or create your profile manually. You’ll review your information before using it to tailor a resume." : "Review and maintain your professional information. Your approved profile is used to generate tailored resumes."}</p>
-    </div>
+      <p className="leading-7 text-muted-foreground">Start with your existing resume, or create your profile manually. You’ll review your information before using it to tailor a resume.</p>
+    </div>}
     {showUpload ? <>
       <ResumeUpload onComplete={() => void load()} onCancel={hasProfile ? () => void load() : undefined} />
       <aside id="upload-disclosure" aria-label="Data disclosure" className="border-t pt-5 text-xs leading-6 text-muted-foreground">

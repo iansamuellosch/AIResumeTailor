@@ -15,7 +15,7 @@ async function openSection(page: Page, name: string) {
   await page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", { name: new RegExp(`^${name}`) }).click();
 }
 async function saved(page: Page) {
-  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Draft saved locally. It has not been verified.");
+  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
 }
 async function readProfiles(page: Page) {
   return page.evaluate(async () => new Promise<{ draft?: ProfessionalProfile; verified?: ProfessionalProfile }>((resolve, reject) => {

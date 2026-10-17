@@ -4,6 +4,9 @@ import { FormProvider, useForm, useWatch, type FieldPath } from "react-hook-form
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Link from "next/link";
+import { DropdownMenu } from "radix-ui";
+import { Ellipsis, FileUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { profileDraftSchema, type ProfessionalProfile } from "@/schemas/profile";
@@ -101,28 +104,35 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
   }
 
   const disabled = persistence.busy || saving;
+  const approvedUnchanged = !session.revision.draft && JSON.stringify(values) === JSON.stringify(session.profile);
   return <FormProvider {...form}>
+    <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="max-w-3xl space-y-3">
+        <div className="flex flex-wrap items-center gap-3"><h1 className="text-3xl font-semibold tracking-tight">Your professional profile</h1><Badge variant="secondary">{approvedUnchanged ? "Approved profile" : "Draft profile"}</Badge></div>
+        <p className="leading-7 text-muted-foreground">Review and maintain your professional information.</p>
+      </div>
+      <div role="group" aria-label="Profile actions" className="flex shrink-0 items-center gap-2">
+        {session.revision.verified && <Button asChild><Link href="/dashboard">Continue to Dashboard</Link></Button>}
+        {onReplace && <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild><Button type="button" variant="outline" size="icon" aria-label="More profile actions" disabled={disabled || persistence.conflict} className="cursor-pointer"><Ellipsis aria-hidden="true" /></Button></DropdownMenu.Trigger>
+          <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={6} className="z-50 min-w-48 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-md">
+            <DropdownMenu.Item disabled={disabled || persistence.conflict} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50" onSelect={() => {
+              setSaving(true);
+              void persistence.saveDraft().then(onReplace).catch(() => setNavigationError("Save your changes before replacing the resume. Your edits are still here.")).finally(() => setSaving(false));
+            }}><FileUp aria-hidden="true" className="size-4" />Replace resume</DropdownMenu.Item>
+          </DropdownMenu.Content></DropdownMenu.Portal>
+        </DropdownMenu.Root>}
+      </div>
+    </header>
     <div className="grid items-start gap-7 lg:grid-cols-[15rem_minmax(0,1fr)]">
       <aside className="space-y-4 lg:sticky lg:top-6">
-        <div className="flex flex-wrap gap-3">
-          {session.revision.verified && <Button asChild variant="outline"><Link href="/dashboard">Continue to Dashboard</Link></Button>}
-          {onReplace && <Button type="button" variant="outline" disabled={disabled || persistence.conflict} onClick={() => {
-            void persistence.saveDraft().then(onReplace).catch(() => setNavigationError("Save your changes before replacing the resume. Your edits are still here."));
-          }}>Replace resume</Button>}
-        </div>
         <div className="hidden lg:block">{sectionNavigation(false)}</div>
         <details ref={mobileNavigation} className="rounded-xl border bg-card lg:hidden">
           <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Jump to section</summary>
           {sectionNavigation(true)}
         </details>
-        <p role="status" aria-label="Profile save status" className="text-sm leading-6 text-muted-foreground">{persistence.status}</p>
-        {session.revision.verified && <p className="text-xs leading-5 text-muted-foreground">Your approved profile stays unchanged until you select Save &amp; Continue.</p>}
-        <p className="text-xs leading-5 text-muted-foreground">Add the sections you need. A full name and valid information in each added entry are required for approval.</p>
-        {persistence.error && <p role="alert" aria-label="Profile storage error" className="text-sm text-destructive">{persistence.error}</p>}
-        {persistence.conflict && <Button variant="outline" onClick={() => { if (window.confirm("Reload and discard unsaved edits on this page?")) window.location.reload(); }}>Reload saved profile</Button>}
       </aside>
       <form noValidate onSubmit={form.handleSubmit(saveDraft)} className="min-w-0 space-y-5">
-        <p className="rounded-lg border bg-card p-4 text-sm leading-6">{!session.revision.draft && JSON.stringify(values) === JSON.stringify(session.profile) ? "This is your approved profile. Editing creates a separate draft; approve your changes before using them for generation." : "This is an unverified draft. Edits autosave locally. Check the facts in each section before selecting Save & Continue."}</p>
         <fieldset disabled={disabled} className="min-w-0 space-y-5">
           <legend className="sr-only">Professional profile fields</legend>
           {editorSections.map(({ id, title }) => <details key={id} id={`section-${id}`} ref={(element) => { sectionRefs.current[id] = element; }} open={id === "personal" || id === "summary" ? true : undefined} className="scroll-mt-6 rounded-xl border bg-card">
@@ -142,9 +152,12 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
         </fieldset>
         {approvalError && <p role="alert" aria-label="Profile approval error" className="text-sm leading-6 text-destructive">{approvalError}</p>}
         {navigationError && <p role="alert" className="text-sm text-destructive">{navigationError}</p>}
-        <div className="flex flex-wrap gap-3 border-t pt-5">
+        {persistence.error && <p role="alert" aria-label="Profile storage error" className="text-sm text-destructive">{persistence.error}</p>}
+        {persistence.conflict && <Button type="button" variant="outline" onClick={() => { if (window.confirm("Reload and discard unsaved edits on this page?")) window.location.reload(); }}>Reload saved profile</Button>}
+        <div className="flex flex-wrap items-center gap-3 border-t pt-5">
           <Button type="submit" variant="outline" disabled={disabled || persistence.conflict}>{saving ? "Saving…" : "Save Draft"}</Button>
           <Button type="button" disabled={disabled || persistence.conflict} onClick={() => void approve()}>{persistence.busy ? "Approving…" : "Save & Continue"}</Button>
+          <span role="status" aria-label="Profile save status" className="text-xs text-muted-foreground sm:ml-auto">{disabled ? "Saving…" : persistence.status}</span>
         </div>
       </form>
     </div>

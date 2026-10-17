@@ -17,8 +17,7 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const [savedContent, setSavedContent] = useState(JSON.stringify(session.profile));
-  const initialStatus = session.revision.draft ? "Draft saved locally. It has not been verified." : "Approved profile saved locally.";
-  const [status, setStatus] = useState(initialStatus);
+  const [status, setStatus] = useState("Saved");
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,19 +29,19 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
       if (conflicted.current) throw new ProfileConflictError();
       if (fingerprint === lastSavedContent.current) {
         dirty.current = JSON.stringify(latest.current) !== fingerprint;
-        if (mounted.current && !dirty.current) setStatus(revision.current.draft ? "Draft saved locally. It has not been verified." : "Approved profile saved locally.");
+        if (mounted.current && !dirty.current) setStatus("Saved");
         return;
       }
-      if (mounted.current) { setStatus("Saving draft…"); setError(""); }
+      if (mounted.current) { setStatus("Saving…"); setError(""); }
       const result = await persistEditorProfile(getDatabase(), candidate, revision.current);
       revision.current = result.revision;
       lastSavedContent.current = fingerprint;
       if (mounted.current) setSavedContent(fingerprint);
       dirty.current = JSON.stringify(latest.current) !== fingerprint;
-      if (mounted.current) setStatus(dirty.current ? "Unsaved changes…" : "Draft saved locally. It has not been verified.");
+      if (mounted.current) setStatus(dirty.current ? "Unsaved changes" : "Saved");
     }).catch((cause: unknown) => {
       if (cause instanceof ProfileConflictError) { conflicted.current = true; if (mounted.current) setConflict(true); }
-      if (mounted.current) { setStatus("Draft not saved"); setError(cause instanceof Error ? cause.message : "Could not save your draft. Your edits are still on this page."); }
+      if (mounted.current) { setStatus("Not saved"); setError(cause instanceof Error ? cause.message : "Could not save your draft. Your edits are still on this page."); }
       throw cause;
     });
     queue.current = pending.catch(() => {});
@@ -64,7 +63,7 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
       if (conflicted.current) throw new ProfileConflictError();
       const result = await persistEditorProfile(getDatabase(), form.getValues(), revision.current, true);
       dirty.current = false;
-      setStatus("Profile approved and saved locally.");
+      setStatus("Saved");
       return result.profile;
     } catch (cause) {
       if (cause instanceof ProfileConflictError) { conflicted.current = true; setConflict(true); setError(cause.message); }
@@ -84,7 +83,7 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
         latest.current = structuredClone(values);
         dirty.current = JSON.stringify(values) !== lastSavedContent.current;
         if (!dirty.current || paused.current || conflicted.current) return;
-        setStatus("Unsaved changes…");
+        setStatus("Unsaved changes");
         clearTimeout(timer.current);
         timer.current = setTimeout(() => { void save(latest.current).catch(() => {}); }, AUTOSAVE_DELAY_MS);
       },
@@ -107,6 +106,6 @@ export function useProfilePersistence(form: UseFormReturn<ProfessionalProfile>, 
   // the current form for status/navigation so a pending deletion is never shown
   // as saved or skipped when the user immediately leaves the page.
   const hasUnsavedChanges = () => JSON.stringify(form.getValues()) !== lastSavedContent.current;
-  const visibleStatus = (status === "Draft saved locally. It has not been verified." || status === "Approved profile saved locally.") && JSON.stringify(values) !== savedContent ? "Unsaved changes…" : status;
+  const visibleStatus = status === "Saved" && JSON.stringify(values) !== savedContent ? "Unsaved changes" : status;
   return { saveDraft, approve, status: visibleStatus, error, conflict, busy, hasUnsavedChanges };
 }

@@ -25,10 +25,10 @@ for (const extension of ["pdf", "docx"]) {
     await page.getByLabel("Choose a resume file").setInputFiles(fixture(extension));
     await expect(page).toHaveURL(/\/profile$/, { timeout: 45_000 });
     await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
-    await expect(page.getByText("This is an unverified draft.", { exact: false })).toBeVisible();
+    await expect(page.getByText("Draft profile", { exact: false })).toBeVisible();
     await page.getByLabel("Professional headline", { exact: true }).fill("Frontend Engineer");
     await page.getByRole("button", { name: "Save Draft", exact: true }).click();
-    await expect(page.getByText("Draft saved locally. It has not been verified.")).toBeVisible();
+    await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
     await page.reload();
     await expect(page.getByLabel("Professional headline", { exact: true })).toHaveValue("Frontend Engineer");
     await page.goto("/");
@@ -68,11 +68,11 @@ test("rejects corrupt files and offers manual profile creation", async ({ page }
   await expect(page).toHaveURL(/\/profile$/);
   await page.getByLabel("Full name", { exact: true }).fill("Manual Profile");
   await page.getByRole("button", { name: "Save Draft", exact: true }).click();
-  await expect(page.getByText("Draft saved locally. It has not been verified.")).toBeVisible();
+  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
   expect(calls).toBe(0);
 });
 
-test("asks before replacing a resume and preserves the approved profile", async ({ page }) => {
+test("asks before replacing a resume and preserves the approved profile", async ({ page }, testInfo) => {
   let calls = 0;
   await page.route("**/api/parse-resume", async (route) => {
     calls++;
@@ -96,10 +96,21 @@ test("asks before replacing a resume and preserves the approved profile", async 
     });
   }, approved);
   await page.reload();
-  await expect(page.getByRole("link", { name: "Continue to Dashboard" })).toBeVisible();
+  await expect(page.locator("main header").getByRole("link", { name: "Continue to Dashboard" })).toBeVisible();
+  await expect(page.locator("main aside")).not.toContainText("Your approved profile stays unchanged");
+  await expect(page.locator("main aside")).not.toContainText("Add the sections you need");
+  await expect(page.locator("main aside").getByRole("status")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save Draft", exact: true }).locator("..").getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
+  await page.locator("main header").screenshot({ path: testInfo.outputPath("profile-header-actions.png") });
+  await page.getByRole("button", { name: "Save Draft", exact: true }).locator("..").screenshot({ path: testInfo.outputPath("profile-save-controls.png") });
+  const actions = page.locator("main header").getByRole("button", { name: "More profile actions" });
+  await actions.focus(); await actions.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Replace resume", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(actions).toBeFocused();
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
   await expect(page.getByLabel("Choose a resume file")).toHaveCount(0);
-  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Approved profile saved locally.");
+  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
   expect(await page.evaluate(async () => new Promise<number>((resolve, reject) => {
     const open = indexedDB.open("ai-resume-tailor");
     open.onsuccess = () => {
@@ -107,7 +118,8 @@ test("asks before replacing a resume and preserves the approved profile", async 
       count.onsuccess = () => { db.close(); resolve(count.result); }; count.onerror = () => reject(count.error);
     };
   }))).toBe(0);
-  await page.getByRole("button", { name: "Replace resume", exact: true }).click();
+  await page.getByRole("button", { name: "More profile actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Replace resume", exact: true }).click();
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByLabel("Choose a resume file").setInputFiles(fixture("docx"));
@@ -115,12 +127,13 @@ test("asks before replacing a resume and preserves the approved profile", async 
   await expect(page.getByText("Saved locally:", { exact: false })).toHaveCount(0);
   await page.getByRole("button", { name: "Back to profile", exact: true }).click();
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
-  await page.getByRole("button", { name: "Replace resume", exact: true }).click();
+  await page.getByRole("button", { name: "More profile actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Replace resume", exact: true }).click();
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByLabel("Choose a resume file").setInputFiles(fixture("docx"));
   await expect(page).toHaveURL(/\/profile$/);
-  await expect(page.getByText("This is an unverified draft.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Draft profile", { exact: false })).toBeVisible();
   const stored = await page.evaluate(async () => new Promise<unknown>((resolve, reject) => {
     const open = indexedDB.open("ai-resume-tailor");
     open.onsuccess = () => {
@@ -138,7 +151,8 @@ test("replacement saves pending profile edits and cancelling returns to those ed
   await page.goto("/profile");
   await page.getByRole("button", { name: "Create draft manually" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Pending replacement edits");
-  await page.getByRole("button", { name: "Replace resume", exact: true }).click();
+  await page.getByRole("button", { name: "More profile actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Replace resume", exact: true }).click();
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   await page.getByRole("button", { name: "Back to profile", exact: true }).click();
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Pending replacement edits");
