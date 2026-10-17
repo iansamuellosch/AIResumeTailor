@@ -15,8 +15,11 @@ export async function enforceAiRateLimit(request: Request): Promise<void> {
     if (++local.count > 5) throw new ApiError(429, "RATE_LIMITED", "Too many AI requests. Try again in a minute.", 60);
     return;
   }
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // Vercel's Upstash integration may provision KV_* rather than UPSTASH_*.
+  // Select a complete credential family; never mix credentials across databases.
+  const useUpstash = Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim() || process.env.UPSTASH_REDIS_REST_TOKEN?.trim());
+  const url = (useUpstash ? process.env.UPSTASH_REDIS_REST_URL : process.env.KV_REST_API_URL)?.trim();
+  const token = (useUpstash ? process.env.UPSTASH_REDIS_REST_TOKEN : process.env.KV_REST_API_TOKEN)?.trim();
   const salt = process.env.RATE_LIMIT_SALT;
   // Public production is supported on Vercel, whose proxy overwrites this header.
   // Never trust arbitrary X-Forwarded-For on an unconfigured host.

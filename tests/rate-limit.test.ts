@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
-vi.mock("@upstash/redis", () => ({ Redis: class {} }));
+const { limit, redisConfig } = vi.hoisted(() => ({ limit: vi.fn(), redisConfig: vi.fn() }));
+vi.mock("@upstash/redis", () => ({ Redis: class { constructor(config: unknown) { redisConfig(config); } } }));
 vi.mock("@upstash/ratelimit", () => ({ Ratelimit: class {
   limit = limit;
   static slidingWindow = vi.fn();
@@ -12,6 +12,22 @@ beforeEach(() => { vi.resetModules(); limit.mockReset(); vi.stubEnv("NODE_ENV", 
 afterEach(() => { vi.unstubAllEnvs(); });
 const request = () => new Request("https://example.test/api/parse-resume", { headers: { "x-vercel-forwarded-for": "203.0.113.1" } });
 describe("server rate limits", () => {
+  it("accepts Vercel integration credentials when Upstash variables are absent", async () => {
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", ""); vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+    vi.stubEnv("KV_REST_API_URL", "https://kv.example.test"); vi.stubEnv("KV_REST_API_TOKEN", "kv-test-token");
+    limit.mockResolvedValue({ success: true });
+    const { enforceParseRateLimit } = await import("@/lib/api/rate-limit");
+    await enforceParseRateLimit(request());
+    expect(redisConfig).toHaveBeenLastCalledWith(expect.objectContaining({ url: "https://kv.example.test", token: "kv-test-token" }));
+    expect(limit).toHaveBeenCalledTimes(2);
+  });
+  it("does not mix partial Upstash settings with KV credentials", async () => {
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+    vi.stubEnv("KV_REST_API_URL", "https://kv.example.test"); vi.stubEnv("KV_REST_API_TOKEN", "kv-test-token");
+    const { enforceParseRateLimit } = await import("@/lib/api/rate-limit");
+    await expect(enforceParseRateLimit(request())).rejects.toMatchObject({ status: 503 });
+    expect(limit).not.toHaveBeenCalled();
+  });
   it("uses shared limits and hashes the client address", async () => {
     limit.mockResolvedValue({ success: true, reset: Date.now() + 1000 });
     const { enforceParseRateLimit } = await import("@/lib/api/rate-limit");

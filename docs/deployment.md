@@ -22,6 +22,8 @@ Webpack is the verified production build path. The default Turbopack build may n
 | `UPSTASH_REDIS_REST_TOKEN` | Server-only Redis REST token. |
 | `RATE_LIMIT_SALT` | Long random secret used to HMAC client IPs for rate-limit keys. |
 
+Vercel's Upstash integration may instead create `KV_REST_API_URL` and `KV_REST_API_TOKEN`. The app accepts that pair when both `UPSTASH_` variables are absent or blank, so duplicating integration credentials is unnecessary. A partially configured `UPSTASH_` pair fails closed; remove both overrides to use the integration. Neither `REDIS_URL` nor the read-only token can replace the REST write credentials. Add `GEMINI_API_KEY` separately in Vercel: local environment files are not deployed through Git.
+
 Vercel sets `VERCEL=1`. The limiter accepts client identity only from the Vercel-managed `x-vercel-forwarded-for` header on that platform. Do not substitute arbitrary `X-Forwarded-For` input. Other production hosts need an explicitly trusted proxy implementation before AI endpoints are enabled. Missing configuration, invalid identity, or a Redis error fails closed with a safe 503 response.
 
 All AI routes share 5 HTTP requests per client per 10 minutes and 200 per day globally. A successful tailoring run uses analysis, generation, and validation requests. A validation request makes up to three Gemini calls, including one optional correction/revalidation. The budget therefore bounds calls but is not a fixed monetary cap; set provider quotas appropriate to the deployment. Existing `resume:parse:*` Redis key prefixes are retained across upgrades to preserve active counters. Development-only in-memory limits are not distributed production protection.
