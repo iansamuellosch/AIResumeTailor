@@ -4,22 +4,39 @@ import { LocalStorageError, storageErrorMessage, type ResumeDatabase } from "./d
 import { draftSnapshot } from "./uploads";
 export const MAX_PROFILE_IMPORT_BYTES = 2 * 1024 * 1024;
 const importProfileSchema = z.union([professionalProfileSchema, profileDraftSchema]);
-export const profileBackupSchema = z.object({ format: z.literal("ai-resume-tailor-profile"), version: z.literal(1), exportedAt: z.iso.datetime(), profile: importProfileSchema });
+const legacyProfileBackupSchema = z.object({ format: z.literal("ai-resume-tailor-profile"), version: z.literal(1), exportedAt: z.iso.datetime(), profile: importProfileSchema });
+export const profileBackupSchema = z.object({
+  format: z.literal("ai-resume-tailor-profile"), version: z.literal(2), exportedAt: z.iso.datetime(),
+  approvedProfile: professionalProfileSchema.refine((profile) => profile.status === "verified").optional(),
+  unfinishedProfile: profileDraftSchema.optional(),
+}).refine((backup) => Boolean(backup.approvedProfile || backup.unfinishedProfile), "A backup must contain a saved profile.");
 export function parseProfileImport(text: string): ProfessionalProfile {
   if (new TextEncoder().encode(text).byteLength > MAX_PROFILE_IMPORT_BYTES) throw new Error("Profile imports are limited to 2 MB.");
   let json: unknown;
   try { json = JSON.parse(text); } catch { throw new Error("This file is not valid JSON. Your existing profile is unchanged."); }
-  const result = z.union([profileBackupSchema.transform((backup) => backup.profile), importProfileSchema]).safeParse(json);
+  const result = z.union([
+    // Unfinished edits take priority so restoring never drops work in progress.
+    // Every imported version still needs explicit review and approval.
+    profileBackupSchema.transform((backup) => (backup.unfinishedProfile ?? backup.approvedProfile)!),
+    legacyProfileBackupSchema.transform((backup) => backup.profile), importProfileSchema,
+  ]).safeParse(json);
   if (!result.success) throw new Error("This file is not a supported profile backup. Your existing profile is unchanged.");
   return result.data;
 }
-export async function exportProfileBackup(db: ResumeDatabase, status: "verified" | "draft") {
+export async function exportProfileBackup(db: ResumeDatabase) {
   try {
-    const record = await (status === "verified" ? db.profiles : db.profileDrafts).get("primary");
-    if (!record) throw new LocalStorageError(status === "verified" ? "No approved profile is saved yet." : "No draft profile is saved yet.");
-    const profile = (status === "verified" ? professionalProfileSchema : profileDraftSchema).parse(record.profile);
-    return profileBackupSchema.parse({ format: "ai-resume-tailor-profile", version: 1, exportedAt: new Date().toISOString(), profile });
-  } catch (cause) { if (cause instanceof LocalStorageError) throw cause; throw new LocalStorageError("Could not export this profile. Your local data is unchanged.", { cause }); }
+    const backup = await db.transaction("r", db.profiles, db.profileDrafts, async () => {
+      const approved = await db.profiles.get("primary");
+      const unfinished = await db.profileDrafts.get("primary");
+      if (!approved && !unfinished) throw new LocalStorageError("No profile is saved yet. Add your information on the Profile page first.");
+      return profileBackupSchema.parse({
+        format: "ai-resume-tailor-profile", version: 2, exportedAt: new Date().toISOString(),
+        approvedProfile: approved?.profile, unfinishedProfile: unfinished?.profile,
+      });
+    });
+    if (new TextEncoder().encode(JSON.stringify(backup, null, 2)).byteLength > MAX_PROFILE_IMPORT_BYTES) throw new LocalStorageError("This profile backup exceeds the 2 MB limit. Your saved information is unchanged.");
+    return backup;
+  } catch (cause) { if (cause instanceof LocalStorageError) throw cause; throw new LocalStorageError("Could not download your profile backup. Your local data is unchanged.", { cause }); }
 }
 export interface ImportRevision { draft?: string; verified?: string }
 export async function readImportRevision(db: ResumeDatabase): Promise<ImportRevision> {

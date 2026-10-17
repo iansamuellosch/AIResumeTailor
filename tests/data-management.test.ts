@@ -9,7 +9,7 @@ afterEach(async () => { vi.restoreAllMocks(); await db.delete(); });
 describe("profile import/export", () => {
   it("round-trips profile facts and imports into an unverified draft without overwriting approval", async () => {
     const profile = tailoringInput().profile; await saveProfile(db, profile);
-    const backup = await exportProfileBackup(db, "verified"); const imported = parseProfileImport(JSON.stringify(backup));
+    const backup = await exportProfileBackup(db); const imported = parseProfileImport(JSON.stringify(backup));
     const draft = await importProfileDraft(db, imported, await readImportRevision(db));
     expect(draft.status).toBe("draft"); expect(draft.verifiedAt).toBeUndefined(); expect(draft.id).not.toBe(profile.id);
     expect(draft.experience).toEqual(profile.experience); expect(draft.version).toBe(profile.version + 1);
@@ -17,9 +17,43 @@ describe("profile import/export", () => {
   });
   it("round-trips incomplete drafts without treating them as approved", async () => {
     const profile = { ...tailoringInput().profile, status: "draft" as const, verifiedAt: undefined }; profile.personalInfo.email = "unfinished@";
-    await saveProfile(db, profile); const backup = await exportProfileBackup(db, "draft");
+    await saveProfile(db, profile); const backup = await exportProfileBackup(db);
     const draft = await importProfileDraft(db, parseProfileImport(JSON.stringify(backup)), await readImportRevision(db));
     expect(draft.personalInfo.email).toBe("unfinished@"); expect(await readProfile(db, "verified")).toBeUndefined();
+  });
+  it("backs up both versions and restores unfinished edits without changing existing approval", async () => {
+    const approved = tailoringInput().profile;
+    const unfinished = { ...structuredClone(approved), status: "draft" as const, verifiedAt: undefined, headline: "Edits in progress" };
+    unfinished.personalInfo.email = "unfinished@";
+    await saveProfile(db, approved); await saveProfile(db, unfinished);
+    const backup = await exportProfileBackup(db);
+    expect(backup.version).toBe(2);
+    expect(backup.approvedProfile).toEqual(approved);
+    expect(backup.unfinishedProfile).toEqual(unfinished);
+    const restored = await importProfileDraft(db, parseProfileImport(JSON.stringify(backup)), await readImportRevision(db));
+    expect(restored.headline).toBe("Edits in progress");
+    expect(restored.personalInfo.email).toBe("unfinished@");
+    expect(restored.status).toBe("draft");
+    expect(await readProfile(db, "verified")).toEqual(approved);
+  });
+  it("accepts old backups and raw profiles for review", () => {
+    const profile = tailoringInput().profile;
+    expect(parseProfileImport(JSON.stringify({ format: "ai-resume-tailor-profile", version: 1, exportedAt: profile.updatedAt, profile }))).toEqual(profile);
+    expect(parseProfileImport(JSON.stringify(profile))).toEqual(profile);
+  });
+  it("rejects empty backups and invalid versions even when the other profile is valid", async () => {
+    await expect(exportProfileBackup(db)).rejects.toThrow("No profile is saved yet");
+    const base = { format: "ai-resume-tailor-profile", version: 2, exportedAt: new Date().toISOString() };
+    expect(() => parseProfileImport(JSON.stringify(base))).toThrow("not a supported profile backup");
+    expect(() => parseProfileImport(JSON.stringify({ ...base, approvedProfile: tailoringInput().profile, unfinishedProfile: {} }))).toThrow();
+    expect(() => parseProfileImport(JSON.stringify({ ...base, approvedProfile: { ...tailoringInput().profile, status: "draft", verifiedAt: undefined } }))).toThrow();
+  });
+  it("does not export a file larger than the restore limit", async () => {
+    const profile = { ...tailoringInput().profile, status: "draft" as const, verifiedAt: undefined };
+    profile.additionalAccomplishments = Array.from({ length: 220 }, (_, index) => ({ id: `oversized-accomplishment-${index}`, text: "x".repeat(10000) }));
+    await saveProfile(db, profile);
+    await expect(exportProfileBackup(db)).rejects.toThrow("2 MB limit");
+    expect((await readProfile(db, "draft"))?.additionalAccomplishments).toHaveLength(220);
   });
   it("rejects invalid, corrupt, oversized, duplicate-ID and unsupported backup versions", () => {
     const profile = tailoringInput().profile;

@@ -12,9 +12,9 @@ export function LocalData() {
     try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not complete this action. Existing local data is preserved."); }
     finally { lock.current = false; setBusy(false); }
   }
-  async function backup(status: "verified" | "draft") {
-    const data = await exportProfileBackup(getDatabase(), status);
-    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `Resume_Profile_${status}.json`);
+  async function backup() {
+    const data = await exportProfileBackup(getDatabase());
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), "Resume_Profile_Backup.json");
     setMessage("Profile backup downloaded. Keep it somewhere private; it contains personal information.");
   }
   async function importFile(file: File) {
@@ -29,17 +29,9 @@ export function LocalData() {
   return <>
     <Card><CardHeader><CardTitle>Back up or restore your profile</CardTitle></CardHeader><CardContent className="space-y-5">
       <p className="text-sm leading-6 text-muted-foreground">Download a copy of your profile to keep it safe or move it to another browser. Backups include profile information only, not uploaded files or generated resumes.</p>
-      <div className="divide-y">
-        <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
-          <div className="space-y-1"><h3 className="text-sm font-medium">Approved profile</h3><p className="text-sm leading-6 text-muted-foreground">The information you’ve reviewed and approved for generating resumes.</p></div>
-          <Button className="shrink-0 sm:w-56" disabled={busy} variant="outline" onClick={() => void run(() => backup("verified"))}>Download approved profile</Button>
-        </div>
-        <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
-          <div className="space-y-1"><h3 className="text-sm font-medium">Unfinished profile</h3><p className="text-sm leading-6 text-muted-foreground">Your saved edits that haven’t been approved yet, kept separately from your approved profile.</p></div>
-          <Button className="shrink-0 sm:w-56" disabled={busy} variant="outline" onClick={() => void run(() => backup("draft"))}>Download unfinished profile</Button>
-        </div>
-      </div>
-      <div className="border-t pt-4"><label htmlFor="profile-import" className="block text-sm font-medium">Restore a profile backup</label><p id="profile-import-help" className="mb-3 mt-1 text-sm leading-6 text-muted-foreground">Choose a backup file (.json), up to 2 MB. You’ll review the restored information on the Profile page before approving it.</p><input id="profile-import" type="file" accept=".json,application/json" disabled={busy} aria-describedby="profile-import-help" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void run(() => importFile(file)); }} className="block w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:font-medium" /></div>
+      <p className="text-sm leading-6 text-muted-foreground">Your backup includes your approved profile and any unfinished edits saved in this browser.</p>
+      <Button disabled={busy} variant="outline" onClick={() => void run(backup)}>Download profile backup</Button>
+      <div className="border-t pt-4"><label htmlFor="profile-import" className="block text-sm font-medium">Restore a profile backup</label><p id="profile-import-help" className="mb-3 mt-1 text-sm leading-6 text-muted-foreground">Choose a backup file (.json), up to 2 MB. Your unfinished edits are restored first when available. Review the restored information on the Profile page before approving it.</p><input id="profile-import" type="file" accept=".json,application/json" disabled={busy} aria-describedby="profile-import-help" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void run(() => importFile(file)); }} className="block w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:font-medium" /></div>
     </CardContent></Card>
     <Card><CardHeader><CardTitle>Delete selected data</CardTitle></CardHeader><CardContent className="divide-y">
       <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
