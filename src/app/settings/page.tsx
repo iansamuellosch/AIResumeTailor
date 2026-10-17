@@ -1,11 +1,30 @@
 import { LocalData } from "@/components/settings/local-data";
 import { ClearResumeData } from "@/components/settings/clear-resume-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 export default function SettingsPage() {
-  return <div className="max-w-2xl space-y-6"><h1 className="text-3xl font-semibold tracking-tight">Privacy & local data</h1><p className="leading-7 text-muted-foreground">Your workspace is designed to keep professional information in this browser.</p><Card><CardHeader><CardTitle>Storage on your device</CardTitle></CardHeader><CardContent className="space-y-4 text-sm leading-6 text-muted-foreground"><p>IndexedDB is configured for a single profile, profile drafts, uploaded documents, generated resumes, and application settings. Your information is not stored in an application server database.</p><p>Data belongs to this browser and website address. Clearing site data, using a different browser, or private browsing may remove or isolate local data.</p><p>Keep a JSON profile backup before clearing browser data. Use the controls below to export, import, or delete local information. Document exports are created in this browser and do not send resume content to the server.</p></CardContent></Card><Card><CardHeader><CardTitle>External AI processing</CardTitle></CardHeader><CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
-    <p>AI processing requires an internet connection. Resume parsing sends extracted text through the application server to Google Gemini. Generating a resume sends the job description, optional job details and notes, relevant approved professional facts, and resume settings to Gemini for job analysis and tailored writing.</p>
-    <p>Your approved profile passes temporarily through the application server. Contact details are excluded from generation and factual-review requests to Gemini. Original uploaded files stay in this browser; profiles are not stored in an application server database.</p>
-    <p>Generated wording is checked against its supporting professional evidence, with at most one correction attempt. Factual validation sends resume claims and their supporting evidence to Gemini. These checks cannot guarantee perfect accuracy. Review the generated resume before using it.</p>
-    <p>Resumes and an approved profile snapshot are saved in this browser so you can return to drafts and retry factual review.</p>
-  </CardContent></Card><LocalData /><ClearResumeData /><p className="text-sm text-muted-foreground">Application version 0.6.0</p></div>;
+  return <div className="max-w-2xl space-y-6">
+    <div className="space-y-2">
+      <h1 className="text-3xl font-semibold tracking-tight">Privacy & local data</h1>
+      <p className="leading-7 text-muted-foreground">Manage your saved information and how it’s used.</p>
+    </div>
+    <Card>
+      <CardHeader><CardTitle>Storage on your device</CardTitle></CardHeader>
+      <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
+        <p>Your profile, uploaded files, and generated resumes are saved in this browser. They won’t automatically appear on another device or in another browser.</p>
+        <p>Clearing browser data can remove your saved information. Private browsing may also remove it when you close the window. Download a profile backup below to keep a copy.</p>
+      </CardContent>
+    </Card>
+    <Card>
+      <CardHeader><CardTitle>External AI processing</CardTitle></CardHeader>
+      <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
+        <p>Google Gemini helps read your uploaded resume, tailor it to a job, and check the result. This requires an internet connection.</p>
+        <p>Uploading sends the text from your resume to Gemini. Tailoring and fact checks send your job description, relevant profile information, notes, and resume content. Contact details are excluded from tailoring and fact checks. Your original file stays in this browser.</p>
+        <p>AI can make mistakes, even after a fact check. Review your resume before using it.</p>
+      </CardContent>
+    </Card>
+    <LocalData />
+    <ClearResumeData />
+    <p className="text-sm text-muted-foreground">Application version 0.6.0</p>
+  </div>;
 }

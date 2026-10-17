@@ -46,19 +46,29 @@ test("upload, approve, tailor, edit, validate, export both formats, and recover 
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
 });
 
-test("profile backups import for review and destructive actions require confirmation", async ({ page }) => {
+test("profile backups import for review and destructive actions require confirmation", async ({ page }, testInfo) => {
   const profile = tailoringInput().profile;
   await page.goto("/settings");
-  await page.getByLabel("Import profile JSON", { exact: true }).setInputFiles({ name: "profile.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(profile)) });
+  await page.getByLabel("Restore a profile backup", { exact: true }).setInputFiles({ name: "profile.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(profile)) });
   await expect(page).toHaveURL(/\/profile$/); await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings", exact: true }).click();
+  const draftDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download unfinished profile", exact: true }).click();
+  const draftBackup = JSON.parse(await readFile((await (await draftDownload).path())!, "utf8"));
+  expect(draftBackup.profile.status).toBe("draft");
+  expect(draftBackup.profile.personalInfo.fullName).toBe("Alex Doe");
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Profile", exact: true }).click();
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click(); await expect(page).toHaveURL(/\/dashboard$/);
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings", exact: true }).click();
-  const pending = page.waitForEvent("download"); await page.getByRole("button", { name: "Export approved profile", exact: true }).click();
+  await expect(page.getByRole("main")).not.toContainText("IndexedDB");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("settings.png"), fullPage: true });
+  const pending = page.waitForEvent("download"); await page.getByRole("button", { name: "Download approved profile", exact: true }).click();
   const backup = JSON.parse(await readFile((await (await pending).path())!, "utf8")); expect(backup.profile.personalInfo.fullName).toBe("Alex Doe");
-  await page.getByLabel("Import profile JSON", { exact: true }).setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"invalid":true}') });
+  await page.getByLabel("Restore a profile backup", { exact: true }).setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"invalid":true}') });
   await expect(page.getByRole("alert", { name: "Local data error" })).toContainText("not a supported profile backup");
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page.getByLabel("Import profile JSON", { exact: true }).setInputFiles({ name: "replacement.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(profile)) });
+  await page.getByLabel("Restore a profile backup", { exact: true }).setInputFiles({ name: "replacement.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(profile)) });
   await expect(page).toHaveURL(/\/settings$/);
   page.once("dialog", (dialog) => dialog.dismiss()); await page.getByRole("button", { name: "Delete all local data", exact: true }).click(); await expect(page).toHaveURL(/\/settings$/);
   page.once("dialog", (dialog) => dialog.accept()); await page.getByRole("button", { name: "Delete uploaded resumes", exact: true }).click(); await expect(page.getByRole("status", { name: "Local data status" })).toContainText("Uploaded files deleted");

@@ -20,21 +20,36 @@ export function LocalData() {
   async function importFile(file: File) {
     if (file.size > MAX_PROFILE_IMPORT_BYTES) throw new Error("Profile imports are limited to 2 MB.");
     const profile = parseProfileImport(await file.text()); const db = getDatabase(); const revision = await readImportRevision(db);
-    if ((revision.draft || revision.verified) && !window.confirm("Import this profile as a new draft? Your current draft will be replaced. Your approved profile stays unchanged until you review and approve the import.")) return;
+    if ((revision.draft || revision.verified) && !window.confirm("Restore this profile backup? It will replace your unfinished profile. Your approved profile stays unchanged until you review and approve the restored information.")) return;
     await importProfileDraft(db, profile, revision);
     // Full reload ensures any cached editor state reflects the imported draft.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Import needs a fresh local editor session.
     window.location.assign("/profile");
   }
   return <>
-    <Card><CardHeader><CardTitle>Profile backups</CardTitle></CardHeader><CardContent className="space-y-4">
-      <p className="text-sm leading-6 text-muted-foreground">Export an approved profile or unfinished draft as JSON. These backups include professional facts and stable fact IDs, and exclude original documents and generated resumes. Imported information always needs review and approval.</p>
-      <div className="flex flex-wrap gap-2"><Button disabled={busy} variant="outline" onClick={() => void run(() => backup("verified"))}>Export approved profile</Button><Button disabled={busy} variant="outline" onClick={() => void run(() => backup("draft"))}>Export draft</Button></div>
-      <div><label htmlFor="profile-import" className="block text-sm font-medium">Import profile JSON</label><p id="profile-import-help" className="mb-2 text-xs text-muted-foreground">JSON profile backup, up to 2 MB. Replaces the editable draft after confirmation.</p><input id="profile-import" type="file" accept=".json,application/json" disabled={busy} aria-describedby="profile-import-help" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void run(() => importFile(file)); }} className="block w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:font-medium" /></div>
+    <Card><CardHeader><CardTitle>Back up or restore your profile</CardTitle></CardHeader><CardContent className="space-y-5">
+      <p className="text-sm leading-6 text-muted-foreground">Download a copy of your profile to keep it safe or move it to another browser. Backups include profile information only, not uploaded files or generated resumes.</p>
+      <div className="divide-y">
+        <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+          <div className="space-y-1"><h3 className="text-sm font-medium">Approved profile</h3><p className="text-sm leading-6 text-muted-foreground">The information you’ve reviewed and approved for generating resumes.</p></div>
+          <Button className="shrink-0 sm:w-56" disabled={busy} variant="outline" onClick={() => void run(() => backup("verified"))}>Download approved profile</Button>
+        </div>
+        <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+          <div className="space-y-1"><h3 className="text-sm font-medium">Unfinished profile</h3><p className="text-sm leading-6 text-muted-foreground">Your saved edits that haven’t been approved yet, kept separately from your approved profile.</p></div>
+          <Button className="shrink-0 sm:w-56" disabled={busy} variant="outline" onClick={() => void run(() => backup("draft"))}>Download unfinished profile</Button>
+        </div>
+      </div>
+      <div className="border-t pt-4"><label htmlFor="profile-import" className="block text-sm font-medium">Restore a profile backup</label><p id="profile-import-help" className="mb-3 mt-1 text-sm leading-6 text-muted-foreground">Choose a backup file (.json), up to 2 MB. You’ll review the restored information on the Profile page before approving it.</p><input id="profile-import" type="file" accept=".json,application/json" disabled={busy} aria-describedby="profile-import-help" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void run(() => importFile(file)); }} className="block w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:font-medium" /></div>
     </CardContent></Card>
-    <Card><CardHeader><CardTitle>Delete selected data</CardTitle></CardHeader><CardContent className="space-y-4">
-      <p className="text-sm leading-6 text-muted-foreground">Deleting uploads keeps your profiles and saved resumes. Deleting saved resumes also removes their original generated content and source snapshots.</p>
-      <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={() => void run(async () => { if (!window.confirm("Delete all original uploaded files from this browser? Profiles and saved resumes will be kept.")) return; await deleteUploadedDocuments(getDatabase()); setMessage("Uploaded files deleted. Profiles and saved resumes were kept."); })}>Delete uploaded resumes</Button><Button variant="outline" disabled={busy} onClick={() => void run(async () => { if (!window.confirm("Delete all saved resumes, original generated content, and their source snapshots? This cannot be undone.")) return; await deleteSavedResumes(getDatabase()); setMessage("Saved resumes deleted. Your profile and uploaded files were kept."); })}>Delete generated resumes</Button></div>
+    <Card><CardHeader><CardTitle>Delete selected data</CardTitle></CardHeader><CardContent className="divide-y">
+      <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+        <div className="space-y-1"><h3 className="text-sm font-medium">Uploaded resumes</h3><p className="text-sm leading-6 text-muted-foreground">Remove the original files you uploaded. Your profile and generated resumes are kept.</p></div>
+        <Button className="shrink-0 sm:w-56" variant="outline" disabled={busy} onClick={() => void run(async () => { if (!window.confirm("Delete all original uploaded files from this browser? Profiles and saved resumes will be kept.")) return; await deleteUploadedDocuments(getDatabase()); setMessage("Uploaded files deleted. Profiles and saved resumes were kept."); })}>Delete uploaded resumes</Button>
+      </div>
+      <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+        <div className="space-y-1"><h3 className="text-sm font-medium">Generated resumes</h3><p className="text-sm leading-6 text-muted-foreground">Remove all generated resumes and their saved versions. Your profile and uploaded files are kept.</p></div>
+        <Button className="shrink-0 sm:w-56" variant="outline" disabled={busy} onClick={() => void run(async () => { if (!window.confirm("Delete all generated resumes and their saved versions from this browser? This cannot be undone. Your profile and uploaded files will be kept.")) return; await deleteSavedResumes(getDatabase()); setMessage("Saved resumes deleted. Your profile and uploaded files were kept."); })}>Delete generated resumes</Button>
+      </div>
     </CardContent></Card>
     <p role="status" aria-label="Local data status" className="text-sm">{busy ? "Updating local data…" : message}</p>{error && <p role="alert" aria-label="Local data error" className="text-sm text-destructive">{error}</p>}
   </>;
