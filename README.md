@@ -48,7 +48,7 @@ Writes compare both draft and approved snapshots inside the transaction. If anot
 
 On `/dashboard`, paste a job description (20–30,000 characters), optionally supply company/title, posting URL, and notes, then choose the template, target length, emphasis, and wording instructions. Optional details are not required when already present in the description. Progress reports real request stages without percentages. Duplicate submissions are blocked, and failed operations leave the form and saved profile intact.
 
-`/api/analyze-job` sends only the description and optional company/title to Gemini, requests structured requirements/keywords, and validates the result with Zod. Missing company information is left absent. `/api/generate-resume` requires a strictly validated approved profile. All AI endpoints use the same streamed 256 KiB body cap, origin check, shared client/global limits, safe JSON responses, no-store headers, and bounded provider calls. Very large profiles may exceed the payload cap; this returns an explicit error without changing local data. No resume/profile content is persisted or logged server-side.
+`/api/analyze-job` sends only the description and optional company/title to Gemini, requests structured requirements/keywords, and validates the result with Zod. Missing company information is left absent. `/api/generate-resume` requires a strictly validated approved profile. All AI endpoints use the same streamed 256 KiB body cap, origin check, shared client/global limits, safe JSON responses, no-store headers, and bounded provider calls. Very large profiles may exceed the payload cap; this returns an explicit error without changing local data. Resume/profile content is not persisted or logged server-side by default; the explicit AI debugging switch records request/response content in hosting logs.
 
 Generation is deliberately constrained:
 
@@ -104,7 +104,7 @@ Production AI processing **fails closed** if shared Redis, a valid Vercel-provid
 
 Parsing, job analysis, generation, and validation share these budgets; one tailoring run uses three HTTP requests. Each validation request makes at most three provider calls (review, one correction, revalidation), so the 200-request daily budget bounds provider calls at 600; it is not a monetary spending cap. Configure provider quotas for your deployment. Existing Redis key prefixes (`resume:parse:*`) are retained so upgrading cannot reset counters. Local `next dev` uses one in-memory bucket of 5 AI requests per minute across clients. This is only a development convenience, **not distributed production protection**. Local `next start` fails closed for AI processing without a trusted production deployment. Tests mock AI/provider calls and do not require a paid key.
 
-The API caps streamed JSON bodies at 256 KiB (including when Content-Length is missing or false), checks origin when supplied, validates input and output, applies provider and client timeouts, returns consistent JSON errors, and sets `Cache-Control: no-store`. Provider details and personal content are not logged or included in error responses. Same-origin checks are supplemental; shared rate limits and the global cap are the cost controls. Additional edge/WAF controls and provider quotas may be appropriate for a public launch.
+The API caps streamed JSON bodies at 256 KiB (including when Content-Length is missing or false), checks origin when supplied, validates input and output, applies provider and client timeouts, returns consistent JSON errors, and sets `Cache-Control: no-store`. Provider details and personal content are excluded from HTTP error responses. Logs omit that content unless the explicit full-payload debugging switch is enabled. Same-origin checks are supplemental; shared rate limits and the global cap are the cost controls. Additional edge/WAF controls and provider quotas may be appropriate for a public launch.
 
 ## Architecture and storage
 
@@ -152,3 +152,7 @@ References: [Gemini structured output](https://ai.google.dev/gemini-api/docs/gen
 ## Tailoring quality
 
 The writer produces a role-specific headline and summary, preserves substantive supported accomplishments, and uses evidence-limited length budgets rather than minimizing the document. Under-generation, repeated bullets, and major omissions trigger at most one editorial rewrite before normal deterministic/semantic factual review. Preview includes source coverage and a summary comparison; dashboard counts help identify incomplete approved profiles. These checks do not promise an exact page count, stronger hiring outcomes, or an ATS score. See docs/deployment.md for limits and request budgets.
+
+## Debugging AI calls
+
+AI lifecycle metadata and exact schema failure paths are logged server-side for every call. To inspect full prompts and raw responses, explicitly set `AI_DEBUG_LOG_PAYLOADS=true` locally or in Vercel and restart/redeploy. This records resume/job content in server logs and shows a debugging notice in the app. Known server credentials are redacted. Disable it with `false` after troubleshooting. See docs/deployment.md for the JSON event/chunk format.

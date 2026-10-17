@@ -1,4 +1,5 @@
 import type { ResumeSelection, ResumeSettings } from "@/schemas/resume";
+import { resumeWritingLimits } from "@/schemas/resume";
 import type { SelectedEvidence } from "./evidence";
 
 const normalized = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -6,11 +7,14 @@ export function contentPlan(evidence: SelectedEvidence, settings: ResumeSettings
   const entries = [...evidence.experience, ...evidence.projects];
   const matchingEntries = entries.filter((entry) => entry.relevanceScore > 0);
   // Atomic technology names alone are useful skills, not a reason to manufacture bullets.
-  const substantiveFacts = (matchingEntries.length ? matchingEntries : entries).reduce((sum, entry) => sum + new Set(entry.facts.filter((fact) => fact.text.trim().split(/\s+/).length >= 4).map((fact) => normalized(fact.text))).size, 0);
+  const factCounts = (matchingEntries.length ? matchingEntries : entries).map((entry) => new Set(entry.facts.filter((fact) => fact.text.trim().split(/\s+/).length >= 4).map((fact) => normalized(fact.text))).size);
+  const substantiveFacts = factCounts.reduce((sum, count) => sum + count, 0);
+  const entryCapacity = factCounts.reduce((sum, count) => sum + Math.min(count, resumeWritingLimits.bulletsPerEntry), 0);
   const lengthCap = settings.targetLength === "one-page" ? 10 : settings.targetLength === "two-pages" ? 20 : 16;
   const cap = matchingEntries.length ? lengthCap : Math.min(4, lengthCap);
-  const targetBullets = Math.min(substantiveFacts, cap);
+  const targetBullets = Math.min(substantiveFacts, cap, entryCapacity);
   return {
+    outputLimits: resumeWritingLimits,
     targetBullets,
     minimumBullets: matchingEntries.length && substantiveFacts >= 6 ? Math.ceil(targetBullets * 0.6) : 0,
     minimumPrioritySkills: Math.min(4, evidence.prioritySkillIds.length),

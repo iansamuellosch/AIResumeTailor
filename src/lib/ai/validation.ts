@@ -11,7 +11,7 @@ const CORRECTION_INSTRUCTIONS = `Correct ONLY the listed resume claims using ONL
 function invalidReview(): never { throw new ApiError(502, "INVALID_AI_RESPONSE", "AI factual review was incomplete or invalid. No successful validation was recorded. Try again."); }
 async function review(claims: Claim[], signal?: AbortSignal): Promise<ValidationIssue[]> {
   if (!claims.length) return [];
-  const response = await requestStructured(semanticReviewSchema, SEMANTIC_VALIDATION_INSTRUCTIONS, { claims }, signal);
+  const response = await requestStructured(semanticReviewSchema, SEMANTIC_VALIDATION_INSTRUCTIONS, { claims }, signal, "review-facts");
   const expected = new Map(claims.map((claim) => [claim.fieldPath, claim]));
   if (response.claims.length !== expected.size) invalidReview();
   const seen = new Set<string>(); const issues: ValidationIssue[] = [];
@@ -35,7 +35,7 @@ export async function validateResumeWithGemini(input: ValidateResumeInput, signa
   if (input.correct && !unrepairable && issues.some((issue) => issue.severity === "error")) {
     const paths = new Set(issues.filter((issue) => issue.severity === "error").map((issue) => issue.fieldPath));
     const claims = inspected.claims.filter((claim) => paths.has(claim.fieldPath));
-    const corrected = await requestStructured(correctionsSchema, CORRECTION_INSTRUCTIONS, { claims, issues: issues.filter((issue) => paths.has(issue.fieldPath)) }, signal);
+    const corrected = await requestStructured(correctionsSchema, CORRECTION_INSTRUCTIONS, { claims, issues: issues.filter((issue) => paths.has(issue.fieldPath)) }, signal, "correct-facts");
     if (corrected.replacements.length !== paths.size) invalidReview();
     const seen = new Set<string>();
     for (const replacement of corrected.replacements) {

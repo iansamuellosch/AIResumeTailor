@@ -14,9 +14,9 @@ describe("evidence-limited resume depth", () => {
   it("makes automatic a substantial writing budget and preserves more source facts", () => {
     const input = richInput(); const evidence = selectEvidence(input.profile, input.jobAnalysis, input.settings);
     expect(evidence.experience[0].facts.length).toBe(19);
-    expect(contentPlan(evidence, input.settings)).toMatchObject({ targetBullets: 16, minimumBullets: 10 });
+    expect(contentPlan(evidence, input.settings)).toMatchObject({ targetBullets: 12, minimumBullets: 8, outputLimits: { bulletsPerEntry: 12 } });
     expect(contentPlan(evidence, { ...input.settings, targetLength: "one-page" }).targetBullets).toBe(10);
-    expect(contentPlan(evidence, { ...input.settings, targetLength: "two-pages" }).targetBullets).toBe(19);
+    expect(contentPlan(evidence, { ...input.settings, targetLength: "two-pages" }).targetBullets).toBe(12);
     expect(JSON.stringify(evidence)).not.toContain(input.profile.personalInfo.email);
   });
   it("flags the two-bullet regression for a rich source without demanding filler from sparse profiles", () => {

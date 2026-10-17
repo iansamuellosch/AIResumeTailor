@@ -1,11 +1,11 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
-import { z } from "zod";
 import { extractedProfileSchema, extractedDataToDraft } from "@/schemas/parse-resume";
 import { RESUME_EXTRACTION_INSTRUCTIONS } from "./prompts";
 import { ApiError } from "@/lib/api/errors";
 import { providerError } from "./provider-error";
 import { toGeminiJsonSchema } from "./json-schema";
+import { aiSchemaIssues, startAiTrace } from "./trace";
 
 export async function parseResumeWithGemini(text: string, signal?: AbortSignal) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -15,9 +15,10 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) abort();
   const timer = setTimeout(abort, 45_000);
+  let trace: ReturnType<typeof startAiTrace> | undefined;
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const result = await ai.models.generateContent({
+    const request = {
       model: process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite",
       contents: [{ role: "user", parts: [{ text: JSON.stringify({ resumeText: text }) }] }],
       config: {
@@ -25,23 +26,21 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
         responseMimeType: "application/json",
         responseJsonSchema: toGeminiJsonSchema(extractedProfileSchema),
         maxOutputTokens: 16000,
-        abortSignal: controller.signal,
-        httpOptions: { timeout: 45_000, retryOptions: { attempts: 1 } },
       },
-    });
+    };
+    if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your file is saved locally. Try again.");
+    trace = startAiTrace("parse-resume", request);
+    const result = await ai.models.generateContent({ ...request, config: { ...request.config, abortSignal: controller.signal, httpOptions: { timeout: 45_000, retryOptions: { attempts: 1 } } } });
+    trace.response(result);
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your file is saved locally. Try again.");
     if (!result.text || result.text.length > 300_000 || result.candidates?.[0]?.finishReason !== "STOP") throw new ApiError(502, "INVALID_AI_RESPONSE", "AI could not return a complete profile. Try again or create a draft manually.");
-    try { return extractedDataToDraft(JSON.parse(result.text)); }
+    try { const draft = extractedDataToDraft(JSON.parse(result.text)); trace.success(); return draft; }
     catch (error) {
-      // Zod paths identify schema fields, not their values. Never log input or provider text.
-      console.warn("Gemini profile validation failed", {
-        issues: error instanceof z.ZodError
-          ? error.issues.slice(0, 20).map(({ code, path }) => ({ code, path }))
-          : [{ code: error instanceof SyntaxError ? "invalid_json" : "empty_profile" }],
-      });
-      throw new ApiError(502, "INVALID_AI_RESPONSE", "AI returned information that could not be validated. Try again or create a draft manually.");
+      trace.validationFailed(aiSchemaIssues(error));
+      throw new ApiError(502, "INVALID_AI_RESPONSE", `AI returned information that could not be validated. Reference: ${trace.callId}. Try again or create a draft manually.`);
     }
   } catch (error) {
+    trace?.failure(error);
     if (error instanceof ApiError) throw error;
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your file is saved locally. Try again.");
     throw providerError(error);

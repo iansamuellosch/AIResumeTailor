@@ -80,4 +80,21 @@ describe("Gemini tailoring", () => {
     await expect(generateResumeWithGemini(input)).rejects.toMatchObject({ code: "INSUFFICIENT_TAILORING" });
     expect(generate).toHaveBeenCalledTimes(2);
   });
+  it("repairs a schema-invalid draft once and still enforces factual assembly", async () => {
+    const oversized = selection(); oversized.headline = "x".repeat(161);
+    generate.mockResolvedValueOnce(response(oversized)).mockResolvedValueOnce(response(selection()));
+    const result = await generateResumeWithGemini(tailoringInput());
+    expect(result.headline).toBe(selection().headline);
+    expect(generate).toHaveBeenCalledTimes(2);
+    const repair = JSON.parse(generate.mock.calls[1][0].contents[0].parts[0].text);
+    expect(repair.schemaIssues).toEqual(expect.arrayContaining([expect.objectContaining({ path: "headline", code: "too_big", maximum: 160 })]));
+    expect(repair.previousInvalidDraft).toBeDefined();
+    expect(result.validation.status).toBe("pending-semantic-review");
+  });
+  it("stops after two schema-invalid drafts", async () => {
+    const oversized = selection(); oversized.headline = "x".repeat(161);
+    generate.mockResolvedValue(response(oversized));
+    await expect(generateResumeWithGemini(tailoringInput())).rejects.toMatchObject({ code: "INVALID_AI_RESPONSE" });
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
 });

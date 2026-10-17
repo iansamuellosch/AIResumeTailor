@@ -20,13 +20,14 @@ export const generateResumeRequestSchema = z.object({
   notes: z.string().trim().max(2000).default(""),
   jobUrl: dashboardInputSchema.shape.jobUrl.default(""),
 });
-export const generatedBulletSchema = z.object({ text: text.min(1), evidenceIds: z.array(id).min(1).max(20) });
-const selectedEntrySchema = z.object({ sourceId: id, bullets: z.array(generatedBulletSchema).min(1).max(12) });
+export const resumeWritingLimits = { bulletsPerEntry: 12, evidenceIdsPerBullet: 20, headlineCharacters: 160, summaryCharacters: 1200 } as const;
+export const generatedBulletSchema = z.object({ text: text.min(1), evidenceIds: z.array(id).min(1).max(resumeWritingLimits.evidenceIdsPerBullet) });
+const selectedEntrySchema = z.object({ sourceId: id, bullets: z.array(generatedBulletSchema).min(1).max(resumeWritingLimits.bulletsPerEntry) });
 // Gemini chooses source IDs and wording; identity fields and metadata are copied by the server.
 export const resumeSelectionSchema = z.object({
   experience: z.array(selectedEntrySchema).max(20), projects: z.array(selectedEntrySchema).max(12),
   skillIds: z.array(id).max(60), educationIds: z.array(id).max(20), certificationIds: z.array(id).max(30),
-  headline: z.string().trim().max(160), summary: z.string().trim().max(1200),
+  headline: z.string().trim().max(resumeWritingLimits.headlineCharacters), summary: z.string().trim().max(resumeWritingLimits.summaryCharacters),
 });
 const bullet = generatedBulletSchema.extend({ id });
 export const resumeExperienceSchema = z.object({
