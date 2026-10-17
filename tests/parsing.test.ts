@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyProfile } from "@/schemas/profile";
+import { createEmptyProfile, professionalProfileSchema } from "@/schemas/profile";
 import { extractedDataToDraft, parseResumeRequestSchema } from "@/schemas/parse-resume";
 import { normalizeExtractedText, validateResumeFile, validateDocxArchive } from "@/lib/parsing/files";
 import { MAX_FILE_BYTES } from "@/lib/parsing/limits";
@@ -30,6 +30,35 @@ describe("file and text validation", () => {
   });
 });
 describe("extracted drafts", () => {
+  it("preserves year-only employment and education dates as reviewable facts without inventing months", () => {
+    const input = {
+      ...createEmptyProfile(),
+      personalInfo: { ...createEmptyProfile().personalInfo, fullName: "Alex Example" },
+      experience: [{ id: "job", employer: "Example Company", jobTitle: "Developer", employmentType: "", location: "", workArrangement: "unspecified", startDate: "2021", endDate: "", currentlyEmployed: true, responsibilities: [], achievements: [], technologies: [], quantifiableResults: [] }],
+      education: [{ id: "school", institution: "Example University", degree: "BSc", fieldOfStudy: "Computer Science", startDate: null, graduationDate: "2020", honors: [], relevantCoursework: [] }],
+    };
+    const draft = extractedDataToDraft(input);
+    expect(draft.experience[0].startDate).toBeUndefined();
+    expect(draft.experience[0].endDate).toBeUndefined();
+    expect(draft.education[0].startDate).toBeUndefined();
+    expect(draft.education[0].graduationDate).toBeUndefined();
+    expect(draft.additionalAccomplishments.map((fact) => fact.text)).toEqual([
+      "Employment (Developer · Example Company) — start year: 2021",
+      "Education (BSc · Example University) — graduation year: 2020",
+    ]);
+    expect(draft.status).toBe("draft");
+    expect(input.experience[0].startDate).toBe("2021");
+    expect(professionalProfileSchema.safeParse(draft).success).toBe(true);
+    expect(professionalProfileSchema.safeParse(input).success).toBe(false);
+  });
+  it("preserves precise months and rejects invalid months instead of discarding dates", () => {
+    const input = createEmptyProfile(); input.personalInfo.fullName = "Alex";
+    input.certifications = [{ id: "cert", name: "Example certificate", issuingOrganization: "Example", issueDate: "2021-06" }];
+    expect(extractedDataToDraft(input).certifications[0].issueDate).toBe("2021-06");
+    expect(extractedDataToDraft(input).additionalAccomplishments).toEqual([]);
+    input.certifications[0].issueDate = "2021-13";
+    expect(() => extractedDataToDraft(input)).toThrow();
+  });
   it("ignores AI metadata and replaces all fact IDs with unique application IDs", () => {
     const input = createEmptyProfile();
     input.personalInfo.fullName = "Alex Doe";

@@ -31,7 +31,15 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your file is saved locally. Try again.");
     if (!result.text || result.text.length > 300_000 || result.candidates?.[0]?.finishReason !== "STOP") throw new ApiError(502, "INVALID_AI_RESPONSE", "AI could not return a complete profile. Try again or create a draft manually.");
     try { return extractedDataToDraft(JSON.parse(result.text)); }
-    catch { throw new ApiError(502, "INVALID_AI_RESPONSE", "AI returned information that could not be validated. Try again or create a draft manually."); }
+    catch (error) {
+      // Zod paths identify schema fields, not their values. Never log input or provider text.
+      console.warn("Gemini profile validation failed", {
+        issues: error instanceof z.ZodError
+          ? error.issues.slice(0, 20).map(({ code, path }) => ({ code, path }))
+          : [{ code: error instanceof SyntaxError ? "invalid_json" : "empty_profile" }],
+      });
+      throw new ApiError(502, "INVALID_AI_RESPONSE", "AI returned information that could not be validated. Try again or create a draft manually.");
+    }
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your file is saved locally. Try again.");
