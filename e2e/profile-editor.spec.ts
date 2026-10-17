@@ -170,6 +170,7 @@ test("autosaves unfinished fields but blocks approval until errors are corrected
   await page.getByRole("button", { name: "Add employment", exact: true }).click();
   await page.getByLabel(/^Start date/).fill("2025-01");
   await page.getByLabel(/^End date/).fill("2024-01");
+  await page.getByRole("button", { name: "Add achievement", exact: true }).click();
   await saved(page);
   const draft = (await readProfiles(page)).draft!;
   expect(draft.personalInfo.email).toBe("unfinished@");
@@ -179,10 +180,16 @@ test("autosaves unfinished fields but blocks approval until errors are corrected
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
   await expect(page.getByRole("alert", { name: "Profile approval error" })).toContainText("correct the highlighted fields");
   await expect(page.getByLabel("Email", { exact: true })).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Enter a valid email address, such as name@example.com.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enter the employer.", { exact: true })).toBeAttached();
+  await expect(page.getByText("Add an achievement, or remove this item if you don't need it.", { exact: true })).toBeAttached();
+  await expect(page.getByText(/Too small:|expected string|>=1 characters/)).toHaveCount(0);
   expect((await readProfiles(page)).verified).toBeUndefined();
   await page.getByLabel("Email", { exact: true }).fill("alex@example.com");
   await page.getByLabel(/^Portfolio URL/).fill("https://example.com");
   await openSection(page, "Work experience");
+  await expect(page.getByText("Add an achievement, or remove this item if you don't need it.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove achievement 1", exact: true }).click();
   await page.getByLabel("Employer", { exact: true }).fill("Example Company");
   await page.getByLabel("Job title", { exact: true }).fill("Developer");
   await page.getByLabel("Currently employed", { exact: true }).check();

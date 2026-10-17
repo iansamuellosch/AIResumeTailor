@@ -13,6 +13,7 @@ import { profileDraftSchema, type ProfessionalProfile } from "@/schemas/profile"
 import { getDatabase } from "@/lib/storage/database";
 import { openEditorSession, type EditorSession } from "@/lib/storage/profile-editor";
 import { editorSections, collections, personalFields, sectionForPath } from "@/lib/profile/editor-config";
+import { profileValidationMessage } from "@/lib/profile/validation-messages";
 import { profileSectionStatus } from "@/lib/profile/completion";
 import { useProfilePersistence } from "@/hooks/use-profile-persistence";
 import { ProfileField } from "./profile-field";
@@ -60,10 +61,10 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
     try { await persistence.approve(); router.push("/dashboard"); }
     catch (cause) {
       if (cause instanceof z.ZodError) {
-        setApprovalError("Please correct the highlighted fields before approving your profile. Your draft has not been verified.");
+        setApprovalError("Please correct the highlighted fields, then try again. Your changes are still saved as a draft.");
         for (const issue of cause.issues) {
           const path = issue.path.join(".") as FieldPath<ProfessionalProfile>;
-          form.setError(path, { type: "verification", message: issue.message });
+          form.setError(path, { type: "verification", message: profileValidationMessage(issue) });
           const section = sectionRefs.current[sectionForPath(path)];
           if (section) section.open = true;
         }

@@ -7,12 +7,12 @@ export const resumeSettingsSchema = z.object({
   template: z.literal("modern-professional"),
   targetLength: z.enum(["one-page", "two-pages", "automatic"]),
   emphasis: z.enum(["balanced", "technical", "experience", "projects"]),
-  additionalInstructions: z.string().trim().max(2000),
+  additionalInstructions: z.string().trim().max(2000, "Keep your instructions to 2,000 characters or fewer."),
 });
 export const defaultResumeSettings: ResumeSettings = { template: "modern-professional", targetLength: "automatic", emphasis: "balanced", additionalInstructions: "" };
 export const dashboardInputSchema = analyzeJobRequestSchema.extend({
-  jobUrl: z.union([z.literal(""), z.url().refine((value) => /^https?:\/\//i.test(value), "Use an HTTP or HTTPS URL")]),
-  notes: z.string().trim().max(2000), settings: resumeSettingsSchema,
+  jobUrl: z.union([z.literal(""), z.url().refine((value) => /^https?:\/\//i.test(value), "Start the link with https:// or http://.")], { error: "Enter a complete link starting with https:// or http://." }),
+  notes: z.string().trim().max(2000, "Keep your notes to 2,000 characters or fewer."), settings: resumeSettingsSchema,
 });
 export const generateResumeRequestSchema = z.object({
   profile: professionalProfileSchema.refine((value) => value.status === "verified", "Approve your profile before generating a resume."),

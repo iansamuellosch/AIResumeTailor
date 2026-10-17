@@ -2,15 +2,15 @@ import { z } from "zod";
 import { skillCategorySchema } from "./skill-categories";
 
 const id = z.string().trim().min(1).max(128);
-const text = z.string().trim().max(10000);
-const requiredText = text.min(1);
-const optionalUrl = z.union([z.literal(""), z.url().refine((value) => /^https?:\/\//i.test(value), "Use an HTTP or HTTPS URL")]).optional();
-const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM");
+const text = z.string().trim().max(10000, "Use 10,000 characters or fewer.");
+const requiredText = text.min(1, "Fill in this field, or remove the item if you don’t need it.");
+const optionalUrl = z.union([z.literal(""), z.url().refine((value) => /^https?:\/\//i.test(value), "Start the link with https:// or http://.")], { error: "Enter a complete link starting with https:// or http://." }).optional();
+const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Choose a valid month and year.");
 const timestamp = z.iso.datetime();
 export const factSchema = z.object({ id, text: requiredText });
 export const websiteSchema = z.object({ id, label: text, url: optionalUrl });
 export const personalInfoSchema = z.object({
-  fullName: text, email: z.union([z.literal(""), z.email()]), phone: text,
+  fullName: text, email: z.union([z.literal(""), z.email()], { error: "Enter a valid email address, such as name@example.com." }), phone: text,
   city: text, region: text, country: text,
   linkedInUrl: optionalUrl, portfolioUrl: optionalUrl, githubUrl: optionalUrl,
   additionalWebsites: z.array(websiteSchema),
@@ -23,14 +23,14 @@ export const workExperienceSchema = z.object({
   responsibilities: z.array(factSchema), achievements: z.array(factSchema),
   technologies: z.array(factSchema), quantifiableResults: z.array(factSchema),
 }).superRefine((entry, ctx) => {
-  if (entry.currentlyEmployed && entry.endDate) ctx.addIssue({ code: "custom", path: ["endDate"], message: "Current employment cannot have an end date" });
-  if (entry.startDate && entry.endDate && entry.endDate < entry.startDate) ctx.addIssue({ code: "custom", path: ["endDate"], message: "End date must follow start date" });
+  if (entry.currentlyEmployed && entry.endDate) ctx.addIssue({ code: "custom", path: ["endDate"], message: "Leave the end date blank while you’re still working here." });
+  if (entry.startDate && entry.endDate && entry.endDate < entry.startDate) ctx.addIssue({ code: "custom", path: ["endDate"], message: "Choose an end date that is the same as or later than the start date." });
 });
 export const educationSchema = z.object({
   id, institution: requiredText, degree: text, fieldOfStudy: text,
   startDate: month.optional(), graduationDate: month.optional(), gpa: text.optional(),
   honors: z.array(factSchema), relevantCoursework: z.array(factSchema),
-}).refine((entry) => !entry.startDate || !entry.graduationDate || entry.graduationDate >= entry.startDate, { path: ["graduationDate"], message: "Graduation must follow start date" });
+}).refine((entry) => !entry.startDate || !entry.graduationDate || entry.graduationDate >= entry.startDate, { path: ["graduationDate"], message: "Choose a graduation date that is the same as or later than the start date." });
 export const skillSchema = z.object({
   id, name: requiredText,
   category: skillCategorySchema,
@@ -40,15 +40,15 @@ export const projectSchema = z.object({
   id, name: requiredText, description: text, role: text, technologies: z.array(factSchema),
   projectUrl: optionalUrl, repositoryUrl: optionalUrl, startDate: month.optional(), endDate: month.optional(),
   responsibilities: z.array(factSchema), achievements: z.array(factSchema),
-}).refine((entry) => !entry.startDate || !entry.endDate || entry.endDate >= entry.startDate, { path: ["endDate"], message: "End date must follow start date" });
+}).refine((entry) => !entry.startDate || !entry.endDate || entry.endDate >= entry.startDate, { path: ["endDate"], message: "Choose an end date that is the same as or later than the start date." });
 export const certificationSchema = z.object({
   id, name: requiredText, issuingOrganization: text, issueDate: month.optional(), expirationDate: month.optional(), credentialUrl: optionalUrl,
-}).refine((entry) => !entry.issueDate || !entry.expirationDate || entry.expirationDate >= entry.issueDate, { path: ["expirationDate"], message: "Expiration must follow issue date" });
+}).refine((entry) => !entry.issueDate || !entry.expirationDate || entry.expirationDate >= entry.issueDate, { path: ["expirationDate"], message: "Choose an expiration date that is the same as or later than the issue date." });
 export const awardSchema = z.object({ id, name: requiredText, issuer: text, date: month.optional(), description: text });
 export const publicationSchema = z.object({ id, title: requiredText, publisher: text, date: month.optional(), url: optionalUrl, description: text });
-export const volunteerExperienceSchema = z.object({ id, organization: requiredText, role: text, startDate: month.optional(), endDate: month.optional(), responsibilities: z.array(factSchema), achievements: z.array(factSchema) }).refine((entry) => !entry.startDate || !entry.endDate || entry.endDate >= entry.startDate, { path: ["endDate"], message: "End date must follow start date" });
+export const volunteerExperienceSchema = z.object({ id, organization: requiredText, role: text, startDate: month.optional(), endDate: month.optional(), responsibilities: z.array(factSchema), achievements: z.array(factSchema) }).refine((entry) => !entry.startDate || !entry.endDate || entry.endDate >= entry.startDate, { path: ["endDate"], message: "Choose an end date that is the same as or later than the start date." });
 export const languageSchema = z.object({ id, name: requiredText, proficiency: text.optional() });
-export const membershipSchema = z.object({ id, organization: requiredText, role: text, startDate: month.optional(), endDate: month.optional() }).refine((entry) => !entry.startDate || !entry.endDate || entry.endDate >= entry.startDate, { path: ["endDate"], message: "End date must follow start date" });
+export const membershipSchema = z.object({ id, organization: requiredText, role: text, startDate: month.optional(), endDate: month.optional() }).refine((entry) => !entry.startDate || !entry.endDate || entry.endDate >= entry.startDate, { path: ["endDate"], message: "Choose an end date that is the same as or later than the start date." });
 
 const profileBaseSchema = z.object({
   id, version: z.number().int().positive(), status: z.enum(["draft", "verified"]),
@@ -77,7 +77,7 @@ function checkProfileIntegrity(profile: z.infer<typeof profileBaseSchema>, ctx: 
   if (profile.status === "draft" && profile.verifiedAt) ctx.addIssue({ code: "custom", path: ["verifiedAt"], message: "Drafts cannot be verified" });
   if (profile.status === "verified") {
     if (!profile.verifiedAt) ctx.addIssue({ code: "custom", path: ["verifiedAt"], message: "Verification timestamp is required" });
-    if (!profile.personalInfo.fullName) ctx.addIssue({ code: "custom", path: ["personalInfo", "fullName"], message: "Name is required for verification" });
+    if (!profile.personalInfo.fullName) ctx.addIssue({ code: "custom", path: ["personalInfo", "fullName"], message: "Enter your full name before continuing." });
     if (profile.verifiedAt && (profile.verifiedAt < profile.createdAt || profile.verifiedAt > profile.updatedAt)) ctx.addIssue({ code: "custom", path: ["verifiedAt"], message: "Verification must fall between creation and last update" });
   }
 }
@@ -87,7 +87,7 @@ export const professionalProfileSchema = profileBaseSchema.superRefine(checkProf
 
 // Editor drafts may contain unfinished or invalid field values. Strict schemas
 // remain mandatory for AI extraction and explicit profile approval.
-const draftText = z.string().max(10000);
+const draftText = z.string().max(10000, "Use 10,000 characters or fewer.");
 const draftOptional = draftText.optional();
 const draftFact = factSchema.extend({ text: draftText });
 const draftDates = { startDate: draftOptional, endDate: draftOptional };
