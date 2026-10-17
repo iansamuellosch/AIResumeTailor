@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { dashboardInputSchema, defaultResumeSettings, type DashboardInput, type GeneratedResume } from "@/schemas/resume";
 import type { ProfessionalProfile } from "@/schemas/profile";
 import { getDatabase, readProfile } from "@/lib/storage/database";
-import { saveGeneratedResume } from "@/lib/storage/resumes";
-import { requestTailoredResume, type GenerationStage } from "@/lib/generation/client";
+import { saveGeneratedResume, updateGeneratedResume } from "@/lib/storage/resumes";
+import { requestResumeValidation, requestTailoredResume, type GenerationStage } from "@/lib/generation/client";
 
 const control = "mt-1.5 w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring";
 export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
@@ -22,12 +22,34 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
   const [busy, setBusy] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const locked = useRef(false);
+  const reviewPermit = useRef<string | undefined>(undefined);
+  const pendingReviewSave = useRef<string | undefined>(undefined);
   const sourceProfile = useRef<ProfessionalProfile | undefined>(undefined);
   useEffect(() => () => controller.current?.abort(), []);
   async function persist(resume: GeneratedResume) {
     setStage("Saving resume locally");
-    await saveGeneratedResume(getDatabase(), resume, sourceProfile.current);
+    if (pendingReviewSave.current) {
+      const record = await updateGeneratedResume(getDatabase(), resume, pendingReviewSave.current, "review");
+      resume = record.content;
+      pendingReviewSave.current = undefined;
+    } else await saveGeneratedResume(getDatabase(), resume, sourceProfile.current, reviewPermit.current);
     setSaved(resume); setPending(undefined);
+  }
+  async function review(resume: GeneratedResume) {
+    if (!sourceProfile.current) throw new Error("The approved source profile is unavailable.");
+    setStage("Validating facts and correcting unsupported wording");
+    const reviewed = await requestResumeValidation(sourceProfile.current, resume, true, controller.current?.signal, reviewPermit.current);
+    pendingReviewSave.current = resume.updatedAt;
+    setPending(reviewed);
+    await persist(reviewed);
+  }
+  async function retryReview() {
+    if (!saved || locked.current) return;
+    locked.current = true; setBusy(true); setError("");
+    controller.current = new AbortController();
+    try { await review(saved); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Factual review failed. Your draft is saved."); }
+    finally { setBusy(false); setStage(undefined); locked.current = false; }
   }
   async function generate(input: DashboardInput) {
     if (locked.current) return;
@@ -38,17 +60,20 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
       const approved = await readProfile(getDatabase(), "verified");
       if (!approved) throw new Error("Approve your profile before generating a resume.");
       sourceProfile.current = approved;
-      const resume = await requestTailoredResume(approved, input, setStage, controller.current.signal);
+      pendingReviewSave.current = undefined;
+      const result = await requestTailoredResume(approved, input, setStage, controller.current.signal);
       if (controller.current.signal.aborted) return;
-      setPending(resume);
-      await persist(resume);
+      reviewPermit.current = result.reviewPermit;
+      setPending(result.resume);
+      await persist(result.resume);
+      await review(result.resume);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Generation failed. Your saved data is preserved."); }
     finally { setBusy(false); setStage(undefined); locked.current = false; }
   }
   async function retrySave() {
     if (!pending || locked.current) return;
     locked.current = true; setBusy(true); setError("");
-    try { await persist(pending); }
+    try { const needsReview = !pendingReviewSave.current; await persist(pending); if (needsReview) await review(pending); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save the resume. Try again."); }
     finally { setBusy(false); setStage(undefined); locked.current = false; }
   }
@@ -92,6 +117,6 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
     <div aria-live="polite" aria-atomic="true">{stage && <p role="status" className="text-sm font-medium">{stage}…</p>}</div>
     {error && <p role="alert" className="rounded-lg border border-destructive p-4 text-sm text-destructive">{error}</p>}
     {pending && !busy && <div className="space-y-3 rounded-xl border bg-card p-5"><p className="text-sm">Your generated result is still in this tab and has not been saved. Retry saving before closing or reloading.</p><Button onClick={() => void retrySave()}>Retry saving resume</Button></div>}
-    {saved && <div className="space-y-3 rounded-xl border bg-card p-5"><h2 className="font-semibold">Resume saved locally</h2><p className="text-sm text-muted-foreground">{saved.jobAnalysis.jobTitle || "Tailored resume"}{saved.jobAnalysis.company ? ` · ${saved.jobAnalysis.company}` : ""}. Factual review: {saved.validation.status}. Review the result before using it.</p><Button asChild><Link href={`/resume/${saved.id}`}>Open saved resume</Link></Button></div>}
+    {saved && <div className="space-y-3 rounded-xl border bg-card p-5"><h2 className="font-semibold">Resume saved locally</h2><p className="text-sm text-muted-foreground">{saved.jobAnalysis.jobTitle || "Tailored resume"}{saved.jobAnalysis.company ? ` · ${saved.jobAnalysis.company}` : ""}. Factual review: {saved.validation.status}. Review the result before using it.</p>{saved.validation.status !== "passed" && <Button disabled={busy || !!pending} onClick={() => void retryReview()}>Retry factual review</Button>}<Button asChild><Link href={`/resume/${saved.id}`}>Open saved resume</Link></Button></div>}
   </div>;
 }

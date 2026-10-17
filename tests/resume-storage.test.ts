@@ -76,3 +76,17 @@ it("does not overwrite edits or originals when a storage write fails", async () 
   expect(await readGeneratedResume(db, resume.id)).toEqual(resume);
   expect((await db.generatedResumes.get(resume.id))?.originalContent).toEqual(resume);
 });
+
+it("retains a pending draft, source snapshot and allowance through reload and factual review", async () => {
+  const { readResumeRecord, updateGeneratedResume } = await import("@/lib/storage/resumes");
+  const resume = savedResume(); const source = { ...tailoringInput().profile, id: resume.profileId };
+  await saveGeneratedResume(db, resume, source, "reserved");
+  db.close(); await db.open();
+  const record = await readResumeRecord(db, resume.id);
+  expect(record?.content.validation.status).toBe("pending-semantic-review");
+  expect(record?.reviewPermit).toBe("reserved"); expect(record?.sourceProfile).toEqual(source);
+  const reviewed = await updateGeneratedResume(db, { ...resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } }, resume.updatedAt, "review");
+  expect(reviewed.reviewPermit).toBe("reserved");
+  expect(reviewed.originalContent.validation.status).toBe("pending-semantic-review");
+  expect(await readGeneratedResume(db, resume.id)).not.toHaveProperty("reviewPermit");
+});

@@ -20,6 +20,7 @@ export const generateResumeRequestSchema = z.object({
   notes: z.string().trim().max(2000).default(""),
   jobUrl: dashboardInputSchema.shape.jobUrl.default(""),
 });
+export const tailorResumeRequestSchema = generateResumeRequestSchema.omit({ jobAnalysis: true }).extend(analyzeJobRequestSchema.shape);
 export const resumeWritingLimits = { bulletsPerEntry: 12, evidenceIdsPerBullet: 20, headlineCharacters: 160, summaryCharacters: 1200 } as const;
 export const generatedBulletSchema = z.object({ text: text.min(1), evidenceIds: z.array(id).min(1).max(resumeWritingLimits.evidenceIdsPerBullet) });
 const selectedEntrySchema = z.object({ sourceId: id, bullets: z.array(generatedBulletSchema).min(1).max(resumeWritingLimits.bulletsPerEntry) });
@@ -29,6 +30,7 @@ export const resumeSelectionSchema = z.object({
   skillIds: z.array(id).max(60), educationIds: z.array(id).max(20), certificationIds: z.array(id).max(30),
   headline: z.string().trim().max(resumeWritingLimits.headlineCharacters), summary: z.string().trim().max(resumeWritingLimits.summaryCharacters),
 });
+export const tailoredContentSchema = z.object({ jobAnalysis: jobAnalysisSchema, selection: resumeSelectionSchema });
 const bullet = generatedBulletSchema.extend({ id });
 export const resumeExperienceSchema = z.object({
   sourceId: id, employer: text, jobTitle: text, location: text,
@@ -59,6 +61,7 @@ export type ResumeSettings = z.infer<typeof resumeSettingsSchema>;
 export type GeneratedResume = z.infer<typeof generatedResumeSchema>;
 export type ResumeSelection = z.infer<typeof resumeSelectionSchema>;
 export type GenerateResumeInput = z.infer<typeof generateResumeRequestSchema>;
+export type TailorResumeInput = z.infer<typeof tailorResumeRequestSchema>;
 export type DashboardInput = z.infer<typeof dashboardInputSchema>;
 
 export type ResumeValidationResult = z.infer<typeof resumeValidationSchema>;

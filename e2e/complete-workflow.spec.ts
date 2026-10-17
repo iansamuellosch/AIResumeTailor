@@ -12,7 +12,7 @@ test("upload, approve, tailor, edit, validate, export both formats, and recover 
   const input = tailoringInput(); const draft = { ...input.profile, status: "draft", verifiedAt: undefined };
   await page.route("**/api/parse-resume", (route) => route.fulfill({ json: { success: true, data: { profile: draft } } }));
   await page.route("**/api/analyze-job", (route) => route.fulfill({ json: { success: true, data: { jobAnalysis: input.jobAnalysis } } }));
-  await page.route("**/api/generate-resume", async (route) => { const body = route.request().postDataJSON(); const resume = assembleResume(body, selectEvidence(body.profile, body.jobAnalysis, body.settings), selection()); await route.fulfill({ json: { success: true, data: { resume } } }); });
+  await page.route("**/api/generate-resume", async (route) => { const body = { ...route.request().postDataJSON(), jobAnalysis: input.jobAnalysis }; const resume = assembleResume(body, selectEvidence(body.profile, body.jobAnalysis, body.settings), selection()); await route.fulfill({ json: { success: true, data: { resume } } }); });
   await page.route("**/api/validate-resume", async (route) => { const { resume } = route.request().postDataJSON(); await route.fulfill({ json: { success: true, data: { resume: { ...resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } }); });
   await page.goto("/"); await page.getByLabel("Choose a resume file").setInputFiles("e2e/fixtures/resume.pdf");
   await expect(page).toHaveURL(/\/profile$/, { timeout: 45000 });

@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { apiErrorSchema } from "@/schemas/parse-resume";
-import { jobAnalysisSchema } from "@/schemas/job";
 import { generatedResumeSchema, type DashboardInput, type GeneratedResume } from "@/schemas/resume";
 import type { ProfessionalProfile } from "@/schemas/profile";
 
@@ -20,23 +19,17 @@ async function post<T>(path: string, input: unknown, schema: z.ZodType<T>, signa
   if (!result.success) throw new Error("The server returned invalid content. No resume was saved. Try again.");
   return result.data;
 }
-export type GenerationStage = "Analyzing job description" | "Matching qualifications and generating resume" | "Validating facts and correcting unsupported wording" | "Saving resume locally";
-export async function requestTailoredResume(profile: ProfessionalProfile, input: DashboardInput, progress: (stage: GenerationStage) => void, signal?: AbortSignal): Promise<GeneratedResume> {
-  progress("Analyzing job description");
-  const { data: { jobAnalysis } } = await post("/api/analyze-job", { jobDescription: input.jobDescription, company: input.company, jobTitle: input.jobTitle }, z.object({ success: z.literal(true), data: z.object({ jobAnalysis: jobAnalysisSchema }) }), signal);
-  progress("Matching qualifications and generating resume");
-  const { data: { resume } } = await post("/api/generate-resume", { profile, jobAnalysis, settings: input.settings, notes: input.notes, jobUrl: input.jobUrl }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema }) }), signal, 105_000);
+export type GenerationStage = "Analyzing job and generating resume" | "Validating facts and correcting unsupported wording" | "Saving resume locally";
+export async function requestTailoredResume(profile: ProfessionalProfile, input: DashboardInput, progress: (stage: GenerationStage) => void, signal?: AbortSignal): Promise<{ resume: GeneratedResume; reviewPermit?: string }> {
+  progress("Analyzing job and generating resume");
+  const { data } = await post("/api/generate-resume", { ...input, profile }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema, reviewPermit: z.string().max(4096).optional() }) }), signal, 105_000);
   if (signal?.aborted) throw new Error("Generation cancelled. Your saved data is preserved.");
-  // Never accept a response for a different approved profile snapshot.
-  if (resume.profileId !== profile.id || resume.profileVersion !== profile.version) throw new Error("The resume does not match your approved profile. Try again.");
-  progress("Validating facts and correcting unsupported wording");
-  const reviewed = await requestResumeValidation(profile, resume, true, signal);
-  if (reviewed.validation.status === "failed") throw new Error(`Factual validation rejected the generated resume. ${reviewed.validation.issues.map((issue) => `${issue.fieldPath}: ${issue.message}`).join(" ").slice(0, 2000)}`);
-  return reviewed;
+  if (data.resume.profileId !== profile.id || data.resume.profileVersion !== profile.version) throw new Error("The resume does not match your approved profile. Try again.");
+  return data;
 }
 
-export async function requestResumeValidation(profile: ProfessionalProfile, resume: GeneratedResume, correct = false, signal?: AbortSignal): Promise<GeneratedResume> {
-  const response = await post("/api/validate-resume", { profile, resume, correct }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema }) }), signal, 155_000);
+export async function requestResumeValidation(profile: ProfessionalProfile, resume: GeneratedResume, correct = false, signal?: AbortSignal, reviewPermit?: string): Promise<GeneratedResume> {
+  const response = await post("/api/validate-resume", { profile, resume, correct, reviewPermit }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema }) }), signal, 155_000);
   const result = response.data.resume;
   if (result.id !== resume.id || result.profileId !== profile.id || result.profileVersion !== profile.version || !result.validation.checkedAt || result.validation.status === "pending-semantic-review") throw new Error("The server returned an incomplete factual review. Try again.");
   return result;

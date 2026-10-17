@@ -5,9 +5,11 @@ vi.mock("server-only", () => ({}));
 const { generate } = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock("@google/genai", () => ({ GoogleGenAI: class { models = { generateContent: generate }; } }));
 import { analyzeJobWithGemini, generateResumeWithGemini } from "@/lib/ai/tailoring";
+import { validateResumeWithGemini } from "@/lib/ai/validation";
+import { inspectResume } from "@/lib/validation/deterministic";
 beforeEach(() => { vi.stubEnv("GEMINI_API_KEY", "test-only"); vi.stubEnv("GEMINI_MODEL", ""); generate.mockReset(); });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
-const response = (data: unknown) => ({ text: JSON.stringify(data), candidates: [{ finishReason: "STOP" }] });
+const response = (data: unknown) => ({ text: JSON.stringify(data && typeof data === "object" && "experience" in data ? { jobAnalysis: tailoringInput().jobAnalysis, selection: data } : data), candidates: [{ finishReason: "STOP" }] });
 describe("Gemini tailoring", () => {
   it("analyzes jobs with structured output and no profile data", async () => {
     generate.mockResolvedValue(response(tailoringInput().jobAnalysis));
@@ -87,7 +89,7 @@ describe("Gemini tailoring", () => {
     expect(result.headline).toBe(selection().headline);
     expect(generate).toHaveBeenCalledTimes(2);
     const repair = JSON.parse(generate.mock.calls[1][0].contents[0].parts[0].text);
-    expect(repair.schemaIssues).toEqual(expect.arrayContaining([expect.objectContaining({ path: "headline", code: "too_big", maximum: 160 })]));
+    expect(repair.schemaIssues).toEqual(expect.arrayContaining([expect.objectContaining({ path: "selection.headline", code: "too_big", maximum: 160 })]));
     expect(repair.previousInvalidDraft).toBeDefined();
     expect(result.validation.status).toBe("pending-semantic-review");
   });
@@ -97,4 +99,17 @@ describe("Gemini tailoring", () => {
     await expect(generateResumeWithGemini(tailoringInput())).rejects.toMatchObject({ code: "INVALID_AI_RESPONSE" });
     expect(generate).toHaveBeenCalledTimes(2);
   });
+});
+
+it("uses exactly two provider calls for combined writing and an independent successful factual review", async () => {
+  const input = tailoringInput();
+  generate.mockResolvedValueOnce(response(selection()));
+  const resume = await generateResumeWithGemini(input);
+  const { claims } = inspectResume(input.profile, resume);
+  generate.mockResolvedValueOnce(response({ claims: claims.map(({ fieldPath }) => ({ fieldPath, outcome: "supported", message: "Supported by the scoped evidence." })) }));
+  const reviewed = await validateResumeWithGemini({ profile: input.profile, resume, correct: true });
+  expect(reviewed.validation.status).toBe("passed");
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(generate.mock.calls[0][0].config.responseJsonSchema.properties).toHaveProperty("jobAnalysis");
+  expect(generate.mock.calls[1][0].config.systemInstruction).toContain("Evaluate EVERY supplied claim");
 });

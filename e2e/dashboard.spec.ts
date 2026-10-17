@@ -47,7 +47,8 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await page.getByLabel("Target length", { exact: true }).selectOption("one-page");
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
   await expect(page.getByRole("heading", { name: "Resume saved locally" })).toBeVisible();
-  expect(analysisCalls).toBe(1); expect(generationCalls).toBe(1);
+  expect(analysisCalls).toBe(0); expect(generationCalls).toBe(1);
+  await expect(page.getByText("Factual review: passed", { exact: false })).toBeVisible();
   await page.getByRole("link", { name: "Open saved resume" }).click();
   await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Integrated REST APIs into React applications.");
@@ -68,7 +69,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Restore original", exact: true }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText(input.profile.summary);
-  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
   await page.getByRole("link", { name: "Return to dashboard", exact: true }).click();
   const history = page.getByRole("region", { name: "Resume history" });
   await expect(history.getByRole("heading", { name: "Frontend Engineer" })).toBeVisible();
@@ -83,33 +84,25 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await expect(history.getByText("No saved resumes yet.")).toBeVisible();
 });
 
-test("analysis failure preserves input, allows retry, and never generates prematurely", async ({ page }) => {
-  const input = await seedApprovedProfile(page);
+test("combined writing failure preserves input and allows a new attempt", async ({ page }) => {
+  await seedApprovedProfile(page);
   let calls = 0;
-  await page.route("**/api/analyze-job", async (route) => {
-    calls++;
-    if (calls === 1) return route.fulfill({ status: 502, json: { success: false, error: { code: "AI_UNAVAILABLE", message: "AI is temporarily unavailable. Try again." } } });
-    await route.fulfill({ json: { success: true, data: { jobAnalysis: input.jobAnalysis } } });
-  });
-  let generated = 0;
   await page.route("**/api/generate-resume", async (route) => {
-    generated++;
-    await route.fulfill({ status: 422, json: { success: false, error: { code: "UNSUPPORTED_GENERATION", message: "Unsupported evidence was rejected. Try again." } } });
+    calls++;
+    await route.fulfill({ status: 502, json: { success: false, error: { code: "AI_UNAVAILABLE", message: "AI is temporarily unavailable. Try again." } } });
   });
   await page.goto("/dashboard");
   const description = "Seeking a React engineer to integrate REST APIs.";
   await page.getByLabel("Job description", { exact: true }).fill(description);
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("AI is temporarily unavailable. Try again.");
-  expect(generated).toBe(0);
   await expect(page.getByLabel("Job description", { exact: true })).toHaveValue(description);
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Unsupported evidence was rejected. Try again.");
+  await expect.poll(() => calls).toBe(2);
   await expect(page.getByRole("heading", { name: "Resume saved locally" })).toHaveCount(0);
-  expect(generated).toBe(1);
 });
 
-test("rejects unresolved generated claims without adding them to history", async ({ page }) => {
+test("preserves unresolved drafts in history and blocks export", async ({ page }) => {
   const input = await seedApprovedProfile(page);
   const resume = assembleResume(input, selectEvidence(input.profile, input.jobAnalysis, input.settings), selection());
   await page.route("**/api/analyze-job", (route) => route.fulfill({ json: { success: true, data: { jobAnalysis: input.jobAnalysis } } }));
@@ -118,6 +111,33 @@ test("rejects unresolved generated claims without adding them to history", async
   await page.goto("/dashboard");
   await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer building accessible applications.");
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("Factual validation rejected");
-  await expect(page.getByText("No saved resumes yet.")).toBeVisible();
+  await expect(page.getByText("Factual review: failed", { exact: false })).toBeVisible();
+  await page.getByRole("link", { name: "Open saved resume" }).click();
+  await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Unsupported claims require correction" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+});
+
+test("recovers a saved pending draft after reload and retries review without regeneration", async ({ page }) => {
+  const input = await seedApprovedProfile(page);
+  const resume = assembleResume(input, selectEvidence(input.profile, input.jobAnalysis, input.settings), selection());
+  let writes = 0; let reviews = 0;
+  await page.route("**/api/generate-resume", async (route) => { writes++; await route.fulfill({ json: { success: true, data: { resume, reviewPermit: "reserved" } } }); });
+  await page.route("**/api/validate-resume", async (route) => {
+    reviews++;
+    expect(route.request().postDataJSON().reviewPermit).toBe("reserved");
+    if (reviews === 1) return route.fulfill({ status: 503, json: { success: false, error: { code: "AI_UNAVAILABLE", message: "Review is temporarily unavailable." } } });
+    await route.fulfill({ json: { success: true, data: { resume: { ...route.request().postDataJSON().resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } });
+  });
+  await page.goto("/dashboard");
+  await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer building accessible applications.");
+  await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Review is temporarily unavailable");
+  await page.reload();
+  await page.getByRole("link", { name: "Open resume", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+  await page.getByRole("button", { name: "Check facts & save" }).click();
+  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  expect(writes).toBe(1); expect(reviews).toBe(2);
 });

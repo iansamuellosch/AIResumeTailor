@@ -3,16 +3,17 @@ import { professionalProfileSchema, type ProfessionalProfile } from "@/schemas/p
 import { pendingValidation } from "@/lib/generation/editing";
 import { LocalStorageError, storageErrorMessage, type ResumeDatabase, type StoredResume } from "./database";
 
-export async function saveGeneratedResume(db: ResumeDatabase, input: unknown, source?: ProfessionalProfile): Promise<GeneratedResume> {
+export async function saveGeneratedResume(db: ResumeDatabase, input: unknown, source?: ProfessionalProfile, reviewPermit?: string): Promise<GeneratedResume> {
   const content = generatedResumeSchema.parse(input);
   const sourceProfile = source ? professionalProfileSchema.parse(source) : undefined;
   if (sourceProfile && (sourceProfile.status !== "verified" || sourceProfile.id !== content.profileId || sourceProfile.version !== content.profileVersion)) throw new Error("Source profile does not match the generated resume.");
   try {
-    await db.generatedResumes.add({ id: content.id, updatedAt: content.updatedAt, content, originalContent: content, sourceProfile });
+    await db.generatedResumes.add({ id: content.id, updatedAt: content.updatedAt, content, originalContent: content, sourceProfile, reviewPermit });
     return content;
   } catch (cause) { throw new LocalStorageError(storageErrorMessage(cause), { cause }); }
 }
 function parseRecord(record: StoredResume): StoredResume {
+  if (record.reviewPermit !== undefined && (typeof record.reviewPermit !== "string" || record.reviewPermit.length > 4096)) throw new Error("Invalid review permit");
   const content = generatedResumeSchema.parse(record.content);
   const originalContent = generatedResumeSchema.parse(record.originalContent);
   const sourceProfile = record.sourceProfile ? professionalProfileSchema.parse(record.sourceProfile) : undefined;

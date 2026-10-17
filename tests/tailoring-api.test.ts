@@ -4,12 +4,12 @@ import { ApiError } from "@/lib/api/errors";
 import { tailoringInput, savedResume } from "./fixtures/tailoring";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/ai/tailoring", () => ({ analyzeJobWithGemini: vi.fn(), generateResumeWithGemini: vi.fn() }));
-vi.mock("@/lib/api/rate-limit", () => ({ enforceAiRateLimit: vi.fn() }));
+vi.mock("@/lib/api/rate-limit", () => ({ enforceAiRateLimit: vi.fn(), reserveTailoringRun: vi.fn(), issueReviewPermit: vi.fn() }));
 import { analyzeJobWithGemini, generateResumeWithGemini } from "@/lib/ai/tailoring";
-import { enforceAiRateLimit } from "@/lib/api/rate-limit";
+import { enforceAiRateLimit, reserveTailoringRun, issueReviewPermit } from "@/lib/api/rate-limit";
 import { POST as analyze } from "@/app/api/analyze-job/route";
 import { POST as generate } from "@/app/api/generate-resume/route";
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(issueReviewPermit).mockResolvedValue("reserved"); });
 const request = (body: unknown, headers = {}) => new Request("http://localhost/api/tailoring", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
 describe("tailoring routes", () => {
   it("returns structured analysis and generated content without caching", async () => {
@@ -21,7 +21,7 @@ describe("tailoring routes", () => {
     for (const response of [analysis, result]) { expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("no-store"); }
     expect((await analysis.json()).data.jobAnalysis.requiredSkills).toContain("React");
     expect((await result.json()).data.resume.experience[0].bullets[0].evidenceIds).toEqual(["fact-1"]);
-    expect(enforceAiRateLimit).toHaveBeenCalledTimes(2);
+    expect(enforceAiRateLimit).toHaveBeenCalledTimes(1); expect(reserveTailoringRun).toHaveBeenCalledTimes(1);
   });
   it("rejects draft profiles and malformed job descriptions before AI", async () => {
     const input = tailoringInput();
@@ -34,7 +34,8 @@ describe("tailoring routes", () => {
     expect((await route(request({}, { "Content-Length": "300000" }))).status).toBe(413);
     expect((await route(request({}, { "Content-Type": "text/plain" }))).status).toBe(415);
     vi.mocked(enforceAiRateLimit).mockRejectedValue(new ApiError(429, "RATE_LIMITED", "Try again later.", 60));
-    const response = await route(request({}));
+    vi.mocked(reserveTailoringRun).mockRejectedValue(new ApiError(429, "RATE_LIMITED", "Try again later.", 60));
+    const response = await route(request(tailoringInput()));
     expect(response.status).toBe(429); expect(response.headers.get("retry-after")).toBe("60");
   });
   it("rejects unsupported evidence and hides unexpected provider details", async () => {
@@ -44,4 +45,12 @@ describe("tailoring routes", () => {
     const response = await generate(request(tailoringInput()));
     expect(response.status).toBe(500); expect(await response.text()).not.toContain("SECRET");
   });
+});
+
+it("still returns the generated draft if issuing its reserved review allowance fails", async () => {
+  vi.mocked(generateResumeWithGemini).mockResolvedValue(savedResume());
+  vi.mocked(issueReviewPermit).mockRejectedValue(new Error("Redis temporarily unavailable"));
+  const response = await generate(request(tailoringInput()));
+  expect(response.status).toBe(200);
+  expect((await response.json()).data.resume.validation.status).toBe("pending-semantic-review");
 });

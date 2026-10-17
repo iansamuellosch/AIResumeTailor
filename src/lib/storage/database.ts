@@ -5,7 +5,7 @@ import { professionalProfileSchema, profileDraftSchema, type ProfessionalProfile
 export interface ProfileRecord { key: "primary"; profile: ProfessionalProfile; sourceDocumentId?: string }
 export interface UploadedDocument { id: string; name: string; mimeType: string; blob: Blob; createdAt: string }
 export interface AppSetting { key: string; value: unknown }
-export interface StoredResume { id: string; updatedAt: string; content: GeneratedResume; originalContent: GeneratedResume; sourceProfile?: ProfessionalProfile }
+export interface StoredResume { id: string; updatedAt: string; content: GeneratedResume; originalContent: GeneratedResume; sourceProfile?: ProfessionalProfile; reviewPermit?: string }
 
 export class ResumeDatabase extends Dexie {
   profiles!: Table<ProfileRecord, string>;

@@ -51,7 +51,7 @@ export function SavedResume({ id }: { id: string }) {
       if (review) {
         const source = record.sourceProfile ?? await readProfile(getDatabase(), "verified");
         if (!source || source.id !== content.profileId || source.version !== content.profileVersion) throw new Error("The approved source profile for this resume is unavailable. Edits can still be saved as unreviewed. Generate a new resume from your current profile to validate against it.");
-        content = await requestResumeValidation(source, content, false, controller.current.signal);
+        content = await requestResumeValidation(source, content, false, controller.current.signal, record.reviewPermit);
       }
       if (controller.current.signal.aborted) return;
       accept(await updateGeneratedResume(getDatabase(), content, record.updatedAt, review ? "review" : "edit"));

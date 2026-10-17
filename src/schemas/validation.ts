@@ -5,6 +5,7 @@ export const validateResumeRequestSchema = z.object({
   profile: professionalProfileSchema.refine((profile) => profile.status === "verified", "An approved source profile is required."),
   resume: generatedResumeSchema,
   correct: z.boolean().default(false),
+  reviewPermit: z.string().max(4096).optional(),
 });
 export const semanticReviewSchema = z.object({
   claims: z.array(z.object({

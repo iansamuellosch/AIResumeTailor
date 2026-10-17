@@ -2,10 +2,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/ai/validation", () => ({ validateResumeWithGemini: vi.fn() }));
-vi.mock("@/lib/api/rate-limit", () => ({ enforceAiRateLimit: vi.fn() }));
+vi.mock("@/lib/api/rate-limit", () => ({ enforceResumeReview: vi.fn() }));
 import { POST } from "@/app/api/validate-resume/route";
 import { validateResumeWithGemini } from "@/lib/ai/validation";
-import { enforceAiRateLimit } from "@/lib/api/rate-limit";
+import { enforceResumeReview } from "@/lib/api/rate-limit";
 import { ApiError } from "@/lib/api/errors";
 import { tailoringInput, savedResume } from "./fixtures/tailoring";
 const req = (body: unknown, headers = {}) => new Request("http://localhost/api/validate-resume", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
@@ -26,8 +26,8 @@ it("rejects invalid data, drafts, oversized bodies and foreign origins before re
   expect(validateResumeWithGemini).not.toHaveBeenCalled();
 });
 it("enforces shared limits and hides unexpected provider details", async () => {
-  vi.mocked(enforceAiRateLimit).mockRejectedValueOnce(new ApiError(429, "RATE_LIMITED", "Try later", 60));
-  const response = await POST(req({})); expect(response.status).toBe(429); expect(response.headers.get("retry-after")).toBe("60");
+  vi.mocked(enforceResumeReview).mockRejectedValueOnce(new ApiError(429, "RATE_LIMITED", "Try later", 60));
+  const response = await POST(req({ profile: tailoringInput().profile, resume: savedResume() })); expect(response.status).toBe(429); expect(response.headers.get("retry-after")).toBe("60");
   vi.mocked(validateResumeWithGemini).mockRejectedValue(new Error("SECRET resume content"));
   const failure = await POST(req({ profile: tailoringInput().profile, resume: savedResume() }));
   expect(failure.status).toBe(500); expect(await failure.text()).not.toContain("SECRET");
