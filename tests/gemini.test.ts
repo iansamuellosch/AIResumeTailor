@@ -5,7 +5,7 @@ const { generate } = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock("@google/genai", () => ({ GoogleGenAI: class { models = { generateContent: generate }; } }));
 import { parseResumeWithGemini } from "@/lib/ai/gemini";
 import { createEmptyProfile } from "@/schemas/profile";
-beforeEach(() => { vi.stubEnv("GEMINI_API_KEY", "test-only-key"); vi.stubEnv("GEMINI_MODEL", ""); vi.stubEnv("GEMINI_PARSE_MODEL", ""); generate.mockReset(); });
+beforeEach(() => { vi.stubEnv("GEMINI_API_KEY", "test-only-key"); vi.stubEnv("GEMINI_MODEL", ""); generate.mockReset(); });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
 describe("Gemini structured parsing", () => {
   it("requests JSON output and converts valid content to a draft", async () => {
@@ -41,13 +41,10 @@ describe("Gemini structured parsing", () => {
     generate.mockRejectedValue({ status: 404, message: "private provider details" });
     await expect(parseResumeWithGemini("Example resume text")).rejects.toMatchObject({ code: "AI_MODEL_UNAVAILABLE", message: expect.not.stringContaining("private provider details") });
   });
-  it("uses a parsing override before the shared model and retains the shared fallback", async () => {
+  it("uses the shared model setting for parsing", async () => {
     const input = createEmptyProfile(); input.personalInfo.fullName = "Alex Doe";
     generate.mockResolvedValue({ text: JSON.stringify(input), candidates: [{ finishReason: "STOP" }] });
-    vi.stubEnv("GEMINI_MODEL", "shared-model"); vi.stubEnv("GEMINI_PARSE_MODEL", " parser-model ");
-    await parseResumeWithGemini("Example resume text");
-    expect(generate.mock.lastCall?.[0].model).toBe("parser-model");
-    vi.stubEnv("GEMINI_PARSE_MODEL", " ");
+    vi.stubEnv("GEMINI_MODEL", " shared-model ");
     await parseResumeWithGemini("Example resume text");
     expect(generate.mock.lastCall?.[0].model).toBe("shared-model");
   });

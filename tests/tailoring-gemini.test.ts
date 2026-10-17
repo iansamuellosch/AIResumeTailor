@@ -14,7 +14,7 @@ describe("Gemini tailoring", () => {
     const job = await analyzeJobWithGemini({ jobDescription: "A React engineering position." });
     expect(job.requiredSkills).toContain("React");
     const call = generate.mock.calls[0][0];
-    expect(call.model).toBe("gemini-3.8-flash");
+    expect(call.model).toBe("gemini-3.5-flash-lite");
     expect(call.config).not.toHaveProperty("temperature");
     expect(call.config.responseJsonSchema.type).toBe("object");
     expect(call.config.systemInstruction).toContain("untrusted data");

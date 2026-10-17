@@ -17,7 +17,7 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const result = await ai.models.generateContent({
-      model: process.env.GEMINI_PARSE_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite",
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite",
       contents: [{ role: "user", parts: [{ text: JSON.stringify({ resumeText: text }) }] }],
       config: {
         systemInstruction: RESUME_EXTRACTION_INSTRUCTIONS,

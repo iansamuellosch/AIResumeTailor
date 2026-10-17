@@ -15,7 +15,7 @@ export async function requestStructured<T>(schema: z.ZodType<T>, instructions: s
   try {
     if (controller.signal.aborted) throw new Error("Aborted");
     const result = await new GoogleGenAI({ apiKey }).models.generateContent({
-      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite",
       contents: [{ role: "user", parts: [{ text: JSON.stringify(data) }] }],
       config: {
         systemInstruction: instructions, responseMimeType: "application/json", responseJsonSchema: z.toJSONSchema(schema),
