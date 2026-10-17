@@ -29,6 +29,11 @@ describe("Gemini tailoring", () => {
     expect(call.contents[0].parts[0].text).toContain("fact-1");
     expect(call.contents[0].parts[0].text).not.toContain(input.profile.personalInfo.email);
     expect(call.config.systemInstruction).toContain("Never invent");
+    expect(call.config.systemInstruction).toContain("Shortening is useful when it removes repetition or low-value detail. It is not the primary objective.");
+    const payload = JSON.parse(call.contents[0].parts[0].text);
+    expect(payload.contentPlan).not.toHaveProperty("targetBullets");
+    expect(payload.contentPlan).not.toHaveProperty("minimumBullets");
+    expect(call.config.responseJsonSchema.properties).not.toHaveProperty("changeExplanation");
     expect(resume.contact.email).toBe(input.profile.personalInfo.email);
   });
   it("rejects syntactically valid AI output with misattributed evidence", async () => {
@@ -61,7 +66,7 @@ describe("Gemini tailoring", () => {
     expect(generate.mock.calls[0][0].model).toBe("custom-model");
   });
   it("returns a sparse draft with exact advisory reasons instead of revising or rejecting it", async () => {
-    const input = tailoringInput();
+    const input = tailoringInput(); input.settings.targetLength = "two-pages";
     input.profile.experience[0].responsibilities = Array.from({ length: 8 }, (_, i) => ({ id: `fact-${i + 10}`, text: `Implemented a distinct React application feature ${i}.` }));
     const sparse = selection(); sparse.experience[0].bullets[0].evidenceIds = ["fact-10"];
     generate.mockResolvedValue(response(sparse));
@@ -118,4 +123,17 @@ it("uses exactly two provider calls for combined writing and an independent succ
   expect(generate).toHaveBeenCalledTimes(2);
   expect(generate.mock.calls[0][0].config.responseJsonSchema.properties).toHaveProperty("jobAnalysis");
   expect(generate.mock.calls[1][0].config.systemInstruction).toContain("Evaluate EVERY supplied claim");
+});
+
+it("retains more than sixteen supported bullets in Automatic without a numeric depth warning", async () => {
+  const input = tailoringInput(); const output = selection();
+  for (const [index, role] of input.profile.experience.entries()) {
+    role.responsibilities = Array.from({ length: 9 }, (_, i) => ({ id: `role-${index}-fact-${i}`, text: `Implemented distinct React application feature ${index}-${i}.` }));
+  }
+  output.experience = input.profile.experience.map((role) => ({ sourceId: role.id, bullets: role.responsibilities.map((fact) => ({ text: fact.text, evidenceIds: [fact.id] })) }));
+  generate.mockResolvedValueOnce(response(output));
+  const resume = await generateResumeWithGemini(input);
+  expect(resume.experience.flatMap((role) => role.bullets)).toHaveLength(18);
+  expect(resume.qualityWarnings).toBeUndefined();
+  expect(generate).toHaveBeenCalledTimes(1);
 });

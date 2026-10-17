@@ -10,16 +10,19 @@ export function contentPlan(evidence: SelectedEvidence, settings: ResumeSettings
   const factCounts = (matchingEntries.length ? matchingEntries : entries).map((entry) => new Set(entry.facts.filter((fact) => fact.text.trim().split(/\s+/).length >= 4).map((fact) => normalized(fact.text))).size);
   const substantiveFacts = factCounts.reduce((sum, count) => sum + count, 0);
   const entryCapacity = factCounts.reduce((sum, count) => sum + Math.min(count, resumeWritingLimits.bulletsPerEntry), 0);
-  const lengthCap = settings.targetLength === "one-page" ? 10 : settings.targetLength === "two-pages" ? 20 : 16;
+  const lengthCap = settings.targetLength === "one-page" ? 10 : 20;
   const cap = matchingEntries.length ? lengthCap : Math.min(4, lengthCap);
   const targetBullets = Math.min(substantiveFacts, cap, entryCapacity);
   return {
     outputLimits: resumeWritingLimits,
-    targetBullets,
-    minimumBullets: matchingEntries.length && substantiveFacts >= 6 ? Math.ceil(targetBullets * 0.6) : 0,
+    // Automatic has no aggregate bullet target or derived coverage floor.
+    ...(settings.targetLength === "automatic" ? {} : {
+      targetBullets,
+      minimumBullets: matchingEntries.length && substantiveFacts >= 6 ? Math.ceil(targetBullets * 0.6) : 0,
+    }),
     minimumPrioritySkills: Math.min(4, evidence.prioritySkillIds.length),
     retainEducation: evidence.education.length > 0,
-    lengthGuidance: settings.targetLength === "one-page" ? "Aim for a substantial one-page resume through concise writing." : settings.targetLength === "two-pages" ? "Use up to two pages of substantive, supported evidence." : "Use the space the supported evidence needs, usually one or two pages. Automatic does not mean shortest possible.",
+    lengthGuidance: settings.targetLength === "one-page" ? "Aim for a substantial one-page resume through concise writing." : settings.targetLength === "two-pages" ? "Use up to two pages of substantive, supported evidence." : "Choose the length that best presents the relevant evidence, without a fixed bullet count or page target. Preserve useful substance without padding; a substantial career may need two pages or more, and a sparse profile may need less than one.",
   };
 }
 
@@ -30,9 +33,10 @@ export function selectionQualityIssues(evidence: SelectedEvidence, settings: Res
   const distinct = new Set(bullets.map((bullet) => normalized(bullet.text)));
   const usedFacts = new Set(bullets.flatMap((bullet) => bullet.evidenceIds));
   const issues: string[] = [];
-  if (distinct.size < plan.minimumBullets) issues.push(`The draft has only ${distinct.size} distinct bullets despite enough source material for at least ${plan.minimumBullets}. Restore substantive relevant facts instead of padding sentences.`);
+  const minimumBullets = plan.minimumBullets ?? 0;
+  if (distinct.size < minimumBullets) issues.push(`The draft has only ${distinct.size} distinct bullets despite enough source material for at least ${minimumBullets}. Restore substantive relevant facts instead of padding sentences.`);
   if (distinct.size !== bullets.length) issues.push("Remove duplicated bullets and use distinct supporting facts.");
-  if (usedFacts.size < plan.minimumBullets) issues.push(`The bullets cover only ${usedFacts.size} source facts. Use more of the supplied distinct evidence rather than paraphrasing the same fact repeatedly.`);
+  if (usedFacts.size < minimumBullets) issues.push(`The bullets cover only ${usedFacts.size} source facts. Use more of the supplied distinct evidence rather than paraphrasing the same fact repeatedly.`);
   if (evidence.experience.length && !selection.experience.length) issues.push("Retain supported professional experience rather than omitting the entire employment section.");
   if (plan.retainEducation && !selection.educationIds.length) issues.push("Retain at least the primary education entry as professional background.");
   if (selection.skillIds.filter((id) => evidence.prioritySkillIds.includes(id)).length < plan.minimumPrioritySkills) issues.push(`Retain at least ${plan.minimumPrioritySkills} of the supplied job-relevant skill IDs.`);

@@ -11,28 +11,33 @@ function richInput() {
   return input;
 }
 describe("evidence-limited resume depth", () => {
-  it("makes automatic a substantial writing budget and preserves more source facts", () => {
+  it("keeps Automatic flexible while retaining technical ceilings and source facts", () => {
     const input = richInput(); const evidence = selectEvidence(input.profile, input.jobAnalysis, input.settings);
     expect(evidence.experience[0].facts.length).toBe(19);
-    expect(contentPlan(evidence, input.settings)).toMatchObject({ targetBullets: 12, minimumBullets: 8, outputLimits: { bulletsPerEntry: 12 } });
+    const automatic = contentPlan(evidence, input.settings);
+    expect(automatic).not.toHaveProperty("targetBullets");
+    expect(automatic).not.toHaveProperty("minimumBullets");
+    expect(automatic.outputLimits.bulletsPerEntry).toBe(12);
     expect(contentPlan(evidence, { ...input.settings, targetLength: "one-page" }).targetBullets).toBe(10);
     expect(contentPlan(evidence, { ...input.settings, targetLength: "two-pages" }).targetBullets).toBe(12);
     expect(JSON.stringify(evidence)).not.toContain(input.profile.personalInfo.email);
   });
   it("flags the two-bullet regression for a rich source without demanding filler from sparse profiles", () => {
-    const input = richInput(); const evidence = selectEvidence(input.profile, input.jobAnalysis, input.settings);
+    const input = richInput(); input.settings.targetLength = "two-pages";
+    const evidence = selectEvidence(input.profile, input.jobAnalysis, input.settings);
     expect(selectionQualityIssues(evidence, input.settings, selection()).join(" ")).toContain("distinct bullets");
     const sparse = tailoringInput();
     expect(selectionQualityIssues(selectEvidence(sparse.profile, sparse.jobAnalysis, sparse.settings), sparse.settings, selection())).toEqual([]);
   });
   it("does not count repeated paraphrases of one fact as sufficient coverage", () => {
-    const input = richInput(); const output = selection();
+    const input = richInput(); input.settings.targetLength = "two-pages"; const output = selection();
     output.experience[0].bullets = Array.from({ length: 10 }, (_, i) => ({ text: `Distinct wording ${i} for the same fact.`, evidenceIds: ["detail-0"] }));
     expect(selectionQualityIssues(selectEvidence(input.profile, input.jobAnalysis, input.settings), input.settings, output).join(" ")).toContain("source facts");
   });
   it("does not demand extra bullets simply because unrelated old roles contain many facts", () => {
     const input = tailoringInput();
     input.profile.experience[1].responsibilities = Array.from({ length: 20 }, (_, i) => ({ id: `unrelated-${i}`, text: `Reconciled warehouse inventory records for supplier shipment ${i}.` }));
+    input.settings.targetLength = "two-pages";
     const plan = contentPlan(selectEvidence(input.profile, input.jobAnalysis, input.settings), input.settings);
     expect(plan.minimumBullets).toBe(0);
     expect(plan.targetBullets).toBe(2);
@@ -62,4 +67,10 @@ describe("evidence-limited resume depth", () => {
     output.summary = "Develops React interfaces and integrates REST APIs.";
     expect(selectionQualityIssues(evidence, input.settings, output)).toEqual([]);
   });
+});
+
+it("does not apply a numeric depth warning in Automatic, even with rich source evidence", () => {
+  const input = richInput(); const evidence = selectEvidence(input.profile, input.jobAnalysis, input.settings);
+  const output = selection(); output.experience[0].bullets[0].evidenceIds = ["detail-0"];
+  expect(selectionQualityIssues(evidence, input.settings, output)).toEqual([]);
 });
