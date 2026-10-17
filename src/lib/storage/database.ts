@@ -1,11 +1,11 @@
+import type { GeneratedResume } from "@/schemas/resume";
 import Dexie, { type Table } from "dexie";
 import { professionalProfileSchema, profileDraftSchema, type ProfessionalProfile } from "@/schemas/profile";
 
 export interface ProfileRecord { key: "primary"; profile: ProfessionalProfile; sourceDocumentId?: string }
 export interface UploadedDocument { id: string; name: string; mimeType: string; blob: Blob; createdAt: string }
 export interface AppSetting { key: string; value: unknown }
-// Reserved until the generated-resume schema is implemented in Milestone 4.
-export interface StoredResume { id: string; updatedAt: string; content: unknown }
+export interface StoredResume { id: string; updatedAt: string; content: GeneratedResume; originalContent: GeneratedResume; sourceProfile?: ProfessionalProfile }
 
 export class ResumeDatabase extends Dexie {
   profiles!: Table<ProfileRecord, string>;

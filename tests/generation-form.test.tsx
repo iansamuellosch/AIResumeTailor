@@ -1,0 +1,36 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { GenerationForm } from "@/components/dashboard/generation-form";
+import { tailoringInput, savedResume } from "./fixtures/tailoring";
+vi.mock("@/lib/generation/client", () => ({ requestTailoredResume: vi.fn() }));
+vi.mock("@/lib/storage/resumes", () => ({ saveGeneratedResume: vi.fn() }));
+vi.mock("@/lib/storage/database", () => ({ getDatabase: vi.fn(), readProfile: vi.fn() }));
+import { requestTailoredResume } from "@/lib/generation/client";
+import { saveGeneratedResume } from "@/lib/storage/resumes";
+import { readProfile } from "@/lib/storage/database";
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(readProfile).mockResolvedValue(tailoringInput().profile); });
+afterEach(() => vi.restoreAllMocks());
+it("retries a failed local save without repeating AI generation", async () => {
+  const resume = savedResume();
+  vi.mocked(requestTailoredResume).mockResolvedValue(resume);
+  vi.mocked(saveGeneratedResume).mockRejectedValueOnce(new Error("Browser storage is full.")).mockResolvedValueOnce(resume);
+  render(<GenerationForm profile={tailoringInput().profile} />);
+  fireEvent.change(screen.getByLabelText("Job description", { exact: true }), { target: { value: "React engineer building accessible web applications." } });
+  fireEvent.click(screen.getByRole("button", { name: "Generate Tailored Resume" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("storage is full");
+  expect(screen.getByRole("button", { name: "Generate Tailored Resume" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Retry saving resume" }));
+  await screen.findByRole("heading", { name: "Resume saved locally" });
+  expect(requestTailoredResume).toHaveBeenCalledTimes(1);
+  expect(saveGeneratedResume).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("link", { name: "Open saved resume" })).toHaveAttribute("href", `/resume/${resume.id}`);
+});
+it("prevents duplicate submissions while processing", async () => {
+  vi.mocked(requestTailoredResume).mockReturnValue(new Promise(() => {}));
+  render(<GenerationForm profile={tailoringInput().profile} />);
+  fireEvent.change(screen.getByLabelText("Job description", { exact: true }), { target: { value: "React engineer building accessible web applications." } });
+  const button = screen.getByRole("button", { name: "Generate Tailored Resume" });
+  fireEvent.click(button); fireEvent.click(button);
+  await waitFor(() => expect(requestTailoredResume).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole("button", { name: "Processing…" })).toBeDisabled();
+});

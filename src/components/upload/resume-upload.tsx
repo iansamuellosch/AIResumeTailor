@@ -45,7 +45,7 @@ export function ResumeUpload() {
     return true;
   }
 
-  async function process(file?: File) {
+  async function processUpload(file?: File) {
     if (!ready || storageFailed || running.current) return;
     try { if (file) validateResumeFile(file); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Choose a PDF or DOCX resume."); return; }
@@ -90,7 +90,7 @@ export function ResumeUpload() {
           event.preventDefault(); setDragging(false);
           if (disabled) return;
           if (event.dataTransfer.files.length !== 1) { setError("Choose one resume at a time."); return; }
-          void process(event.dataTransfer.files[0]);
+          void processUpload(event.dataTransfer.files[0]);
         }}
         className={`rounded-xl border border-dashed px-6 py-10 sm:px-10 ${dragging ? "border-primary bg-secondary" : "bg-card"}`}
         aria-busy={!!busy}
@@ -103,7 +103,7 @@ export function ResumeUpload() {
         <input
           ref={input} id="resume-file" type="file" accept=".pdf,.docx" disabled={disabled}
           aria-describedby="upload-formats upload-disclosure"
-          onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void process(file); }}
+          onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void processUpload(file); }}
           className="mt-6 block w-full min-w-0 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
         />
         {busy && <p role="status" className="mt-4 text-sm">{busy}</p>}
@@ -112,7 +112,7 @@ export function ResumeUpload() {
       </div>
       {error && <p role="alert" aria-label="Upload error" className="text-sm leading-6 text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-3">
-        {document && <Button variant="outline" disabled={disabled} onClick={() => void process()}>Retry saved resume</Button>}
+        {document && <Button variant="outline" disabled={disabled} onClick={() => void processUpload()}>Retry saved resume</Button>}
         <Button variant="ghost" disabled={disabled} onClick={() => void startManually()}>Create draft manually</Button>
         {storageFailed && <Button variant="outline" onClick={() => window.location.reload()}>Retry local storage</Button>}
       </div>

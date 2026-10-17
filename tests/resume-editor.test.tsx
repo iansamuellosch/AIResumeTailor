@@ -1,0 +1,66 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/lib/storage/database", async (importOriginal) => ({ ...await importOriginal<typeof import("@/lib/storage/database")>(), getDatabase: vi.fn() }));
+vi.mock("@/lib/generation/client", () => ({ requestResumeValidation: vi.fn() }));
+import { SavedResume } from "@/components/resume/saved-resume";
+import { ResumeDatabase, getDatabase, readProfile, saveProfile } from "@/lib/storage/database";
+import { saveGeneratedResume, readResumeRecord, updateGeneratedResume } from "@/lib/storage/resumes";
+import { requestResumeValidation } from "@/lib/generation/client";
+import { tailoringInput, selection } from "./fixtures/tailoring";
+import { assembleResume } from "@/lib/generation/assemble";
+import { selectEvidence } from "@/lib/generation/evidence";
+let db: ResumeDatabase;
+beforeEach(() => { vi.resetAllMocks(); db = new ResumeDatabase(`editor-${crypto.randomUUID()}`); vi.mocked(getDatabase).mockReturnValue(db); });
+afterEach(async () => { await db.delete(); });
+async function fixture(snapshot = true) {
+  const input = tailoringInput();
+  const resume = assembleResume(input, selectEvidence(input.profile, input.jobAnalysis, input.settings), selection());
+  resume.validation = { status: "passed", checkedAt: new Date().toISOString(), issues: [] };
+  await saveGeneratedResume(db, resume, snapshot ? input.profile : undefined); await saveProfile(db, input.profile);
+  render(<SavedResume id={resume.id} />);
+  await screen.findByRole("heading", { name: "Factual checks completed" });
+  fireEvent.click(screen.getByRole("button", { name: "Edit resume" }));
+  return { input, resume };
+}
+it("checks against the original approved snapshot even after the current profile changes", async () => {
+  const { input, resume } = await fixture();
+  const changedProfile = { ...input.profile, version: 2, summary: "A newer profile summary." };
+  await saveProfile(db, changedProfile);
+  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Develops applications with React." } });
+  expect(screen.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
+  vi.mocked(requestResumeValidation).mockImplementation(async (_source, current) => ({ ...current, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } }));
+  fireEvent.click(screen.getByRole("button", { name: "Check facts & save" }));
+  await waitFor(() => expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Factual review saved"));
+  expect(vi.mocked(requestResumeValidation).mock.calls[0][0]).toEqual(input.profile);
+  expect(await readProfile(db, "verified")).toEqual(changedProfile);
+  const record = await readResumeRecord(db, resume.id);
+  expect(record?.content.summary).toBe("Develops applications with React.");
+  expect(record?.originalContent.summary).toBe(input.profile.summary);
+});
+it("keeps manual text for retry after a failed AI review", async () => {
+  const { resume } = await fixture();
+  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Text retained in this tab." } });
+  vi.mocked(requestResumeValidation).mockRejectedValue(new Error("AI review unavailable."));
+  fireEvent.click(screen.getByRole("button", { name: "Check facts & save" }));
+  expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("AI review unavailable");
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Text retained in this tab.");
+  expect((await readResumeRecord(db, resume.id))?.content.summary).toBe(resume.summary);
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Changes saved locally"));
+  expect((await readResumeRecord(db, resume.id))?.content.validation.status).toBe("pending-semantic-review");
+});
+it("blocks stale tab saves without discarding local text", async () => {
+  const { resume } = await fixture();
+  await updateGeneratedResume(db, { ...resume, summary: "Newer tab's summary." }, resume.updatedAt);
+  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Stale tab's edits." } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("another tab");
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Stale tab's edits.");
+  expect((await readResumeRecord(db, resume.id))?.content.summary).toBe("Newer tab's summary.");
+});
+it("does not revalidate legacy resumes against a different source profile version", async () => {
+  const { input } = await fixture(false); await saveProfile(db, { ...input.profile, version: 2 });
+  fireEvent.click(screen.getByRole("button", { name: "Check facts & save" }));
+  expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("source profile for this resume is unavailable");
+  expect(requestResumeValidation).not.toHaveBeenCalled();
+});

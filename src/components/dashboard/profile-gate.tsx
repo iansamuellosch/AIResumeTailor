@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getDatabase, readProfile } from "@/lib/storage/database";
+import { GenerationForm } from "./generation-form";
 import type { ProfessionalProfile } from "@/schemas/profile";
 
 export function ProfileGate() {
@@ -23,10 +24,5 @@ export function ProfileGate() {
     <p className="text-sm leading-6 text-muted-foreground">Review and approve your professional information before using it to generate resumes. Unverified drafts cannot be used for tailoring.</p>
     <Button asChild><Link href="/profile">Review profile</Link></Button>
   </div>;
-  return <div className="space-y-4 rounded-xl border bg-card p-6">
-    <h2 className="text-lg font-semibold">Your profile is ready</h2>
-    <p className="text-sm leading-6 text-muted-foreground">{profile.personalInfo.fullName} · Approved profile version {profile.version}</p>
-    <p className="text-sm leading-6 text-muted-foreground">Job descriptions and resume generation will be available in Milestone 4.</p>
-    <Button asChild variant="outline"><Link href="/profile">Edit approved profile</Link></Button>
-  </div>;
+  return <GenerationForm profile={profile} />;
 }

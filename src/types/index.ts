@@ -13,3 +13,5 @@ export type Publication = z.infer<typeof schemas.publicationSchema>;
 export type VolunteerExperience = z.infer<typeof schemas.volunteerExperienceSchema>;
 export type Language = z.infer<typeof schemas.languageSchema>;
 export type Membership = z.infer<typeof schemas.membershipSchema>;
+export type { JobAnalysis } from "@/schemas/job";
+export type { GeneratedResume, ResumeSettings, ResumeValidationResult, ValidationIssue } from "@/schemas/resume";

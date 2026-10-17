@@ -1,3 +1,4 @@
+import { savedResume } from "./fixtures/tailoring";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ResumeDatabase } from "@/lib/storage/database";
 import { clearResumeData } from "@/lib/storage/clear-resume-data";
@@ -10,7 +11,8 @@ it("clears all resume data and the upload pointer while preserving unrelated pre
   await db.profileDrafts.put({ key: "primary", profile });
   await db.profiles.put({ key: "primary", profile });
   await db.uploadedDocuments.put({ id: "upload", name: "resume.pdf", mimeType: "application/pdf", blob: new Blob(["test"]), createdAt: profile.createdAt });
-  await db.generatedResumes.put({ id: "resume", updatedAt: profile.updatedAt, content: {} });
+  const content = savedResume();
+  await db.generatedResumes.put({ id: content.id, updatedAt: content.updatedAt, content, originalContent: content });
   await db.settings.bulkPut([{ key: "latest-upload", value: "upload" }, { key: "theme", value: "light" }]);
   await clearResumeData(db);
   for (const table of [db.profileDrafts, db.profiles, db.uploadedDocuments, db.generatedResumes]) expect(await table.count()).toBe(0);

@@ -6,10 +6,10 @@ test("reset requires confirmation and returns to a fresh upload screen", async (
   await expect(page.getByRole("status", { name: "Profile save status" })).toContainText("Draft saved locally");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings" }).click();
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page.getByRole("button", { name: "Clear resume data", exact: true }).click();
+  await page.getByRole("button", { name: "Delete all local data", exact: true }).click();
   await expect(page).toHaveURL(/\/settings$/);
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Clear resume data", exact: true }).click();
+  await page.getByRole("button", { name: "Delete all local data", exact: true }).click();
   await expect(page).toHaveURL("/");
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   await expect(page.getByRole("link", { name: "Continue reviewing draft" })).toHaveCount(0);

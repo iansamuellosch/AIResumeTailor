@@ -8,11 +8,11 @@ import { ApiError } from "./errors";
 let shared: { client: Ratelimit; global: Ratelimit } | undefined;
 let local: { start: number; count: number } = { start: 0, count: 0 };
 
-export async function enforceParseRateLimit(request: Request): Promise<void> {
+export async function enforceAiRateLimit(request: Request): Promise<void> {
   if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
     // One shared development bucket; forwarded headers cannot bypass it.
     if (Date.now() - local.start >= 60_000) local = { start: Date.now(), count: 0 };
-    if (++local.count > 5) throw new ApiError(429, "RATE_LIMITED", "Too many parsing attempts. Try again in a minute.", 60);
+    if (++local.count > 5) throw new ApiError(429, "RATE_LIMITED", "Too many AI requests. Try again in a minute.", 60);
     return;
   }
   const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -22,7 +22,7 @@ export async function enforceParseRateLimit(request: Request): Promise<void> {
   // Never trust arbitrary X-Forwarded-For on an unconfigured host.
   const ip = request.headers.get("x-vercel-forwarded-for")?.trim();
   if (process.env.VERCEL !== "1" || !url || !token || !salt || !ip || !isIP(ip)) {
-    throw new ApiError(503, "RATE_LIMIT_UNAVAILABLE", "Resume parsing is temporarily unavailable. Please try again later.");
+    throw new ApiError(503, "RATE_LIMIT_UNAVAILABLE", "AI processing is temporarily unavailable. Please try again later.");
   }
   try {
     if (!shared) {
@@ -35,12 +35,15 @@ export async function enforceParseRateLimit(request: Request): Promise<void> {
     const key = createHmac("sha256", salt).update(ip).digest("hex");
     const client = await shared.client.limit(key);
     if (client.reason === "timeout") throw new Error("Rate limit timeout");
-    if (!client.success) throw new ApiError(429, "RATE_LIMITED", "Too many parsing attempts. Please try again later.", Math.max(1, Math.ceil((client.reset - Date.now()) / 1000)));
+    if (!client.success) throw new ApiError(429, "RATE_LIMITED", "Too many AI requests. Please try again later.", Math.max(1, Math.ceil((client.reset - Date.now()) / 1000)));
     const budget = await shared.global.limit("all");
     if (budget.reason === "timeout") throw new Error("Rate limit timeout");
-    if (!budget.success) throw new ApiError(429, "DAILY_LIMIT_REACHED", "The daily parsing limit has been reached. Please try again tomorrow.", Math.max(1, Math.ceil((budget.reset - Date.now()) / 1000)));
+    if (!budget.success) throw new ApiError(429, "DAILY_LIMIT_REACHED", "The daily AI request limit has been reached. Please try again tomorrow.", Math.max(1, Math.ceil((budget.reset - Date.now()) / 1000)));
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(503, "RATE_LIMIT_UNAVAILABLE", "Resume parsing is temporarily unavailable. Please try again later.");
+    throw new ApiError(503, "RATE_LIMIT_UNAVAILABLE", "AI processing is temporarily unavailable. Please try again later.");
   }
 }
+
+// Parsing and tailoring share the same client and global budgets to prevent bypasses.
+export const enforceParseRateLimit = enforceAiRateLimit;

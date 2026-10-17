@@ -28,3 +28,8 @@
   a, button { @apply outline-offset-4; }
   a:focus-visible, button:focus-visible { @apply outline-2 outline-ring; }
 }
+
+@font-face { font-family: Resume Sans; src: url("/fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Resume Sans; src: url("/fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+.resume-document { font-family: Resume Sans, Arial, sans-serif; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
