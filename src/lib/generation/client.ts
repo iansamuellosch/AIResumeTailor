@@ -1,3 +1,4 @@
+import { logBrowserAiDebug } from "@/lib/ai/browser-debug";
 import { z } from "zod";
 import { apiErrorSchema } from "@/schemas/parse-resume";
 import { generatedResumeSchema, type DashboardInput, type GeneratedResume } from "@/schemas/resume";
@@ -11,6 +12,7 @@ async function post<T>(path: string, input: unknown, schema: z.ZodType<T>, signa
     throw new Error(signal?.aborted ? "Generation cancelled. Your saved data is preserved." : "Could not complete AI processing. Check your connection and try again. Your saved data is preserved.");
   }
   const json: unknown = await response.json().catch(() => undefined);
+  logBrowserAiDebug(json);
   if (!response.ok) {
     const error = apiErrorSchema.safeParse(json);
     throw new Error(error.success ? error.data.error.message : "AI processing failed. Try again.");

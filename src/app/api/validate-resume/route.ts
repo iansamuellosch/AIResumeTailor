@@ -1,3 +1,4 @@
+import { withAiDebug } from "@/lib/ai/debug-response";
 import { validateResumeRequestSchema } from "@/schemas/validation";
 import { readLimitedJson } from "@/lib/api/request";
 import { ApiError, errorResponse } from "@/lib/api/errors";
@@ -7,11 +8,13 @@ export const runtime = "nodejs";
 // Review + one correction + revalidation, each with a 45-second provider deadline.
 export const maxDuration = 180;
 export async function POST(request: Request) {
-  try {
-    const input = validateResumeRequestSchema.safeParse(await readLimitedJson(request));
-    if (!input.success) throw new ApiError(400, "INVALID_REQUEST", "Provide a valid resume and its approved source profile.");
-    await enforceResumeReview(request, input.data.resume, input.data.reviewPermit);
-    const resume = await validateResumeWithGemini(input.data, request.signal);
-    return Response.json({ success: true, data: { resume } }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) { return errorResponse(error); }
+  return withAiDebug(async () => {
+    try {
+      const input = validateResumeRequestSchema.safeParse(await readLimitedJson(request));
+      if (!input.success) throw new ApiError(400, "INVALID_REQUEST", "Provide a valid resume and its approved source profile.");
+      await enforceResumeReview(request, input.data.resume, input.data.reviewPermit);
+      const resume = await validateResumeWithGemini(input.data, request.signal);
+      return Response.json({ success: true, data: { resume } }, { headers: { "Cache-Control": "no-store" } });
+    } catch (error) { return errorResponse(error); }
+  });
 }

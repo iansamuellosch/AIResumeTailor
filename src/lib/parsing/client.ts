@@ -1,3 +1,4 @@
+import { logBrowserAiDebug } from "@/lib/ai/browser-debug";
 import { apiErrorSchema, parseResumeResponseSchema } from "@/schemas/parse-resume";
 
 export async function requestProfileDraft(text: string) {
@@ -12,6 +13,7 @@ export async function requestProfileDraft(text: string) {
     throw new Error("Could not reach the server. Check your connection and try again. Your file is saved locally.");
   }
   const json: unknown = await response.json().catch(() => undefined);
+  logBrowserAiDebug(json);
   if (!response.ok) {
     const error = apiErrorSchema.safeParse(json);
     throw new Error(error.success ? error.data.error.message : "Could not parse your resume. Try again later.");

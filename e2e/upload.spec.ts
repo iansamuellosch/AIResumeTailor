@@ -145,3 +145,20 @@ test("replacement saves pending profile edits and cancelling returns to those ed
   await page.reload();
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Pending replacement edits");
 });
+
+test("shows AI payloads in the browser console without a debugging banner", async ({ page }) => {
+  const messages: string[] = []; page.on("console", (message) => messages.push(message.text()));
+  await page.route("**/api/parse-resume", (route) => route.fulfill({ json: { success: true, data: { profile: sampleDraft() }, debug: { calls: [
+    { callId: "browser-debug-call", operation: "parse-resume", direction: "request", payload: { model: "test-model", contents: [{ role: "user", parts: [{ text: JSON.stringify({ text: "Synthetic resume" }) }] }], config: { systemInstruction: "Extract facts" } }, truncated: false },
+    { callId: "browser-debug-call", operation: "parse-resume", direction: "response", payload: { text: JSON.stringify({ fullName: "Alex Doe" }) }, truncated: false },
+  ] } } }));
+  await page.goto("/");
+  await expect(page.getByText("AI debugging is enabled.", { exact: false })).toHaveCount(0);
+  await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
+  await page.getByLabel("Choose a resume file").setInputFiles(fixture("docx"));
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
+  expect(messages).toContain("[Gemini] parse-resume · request · browser-debug-call");
+  expect(messages).toContain("[Gemini] parse-resume · response · browser-debug-call");
+  expect(messages.some((line) => line.startsWith("Parsed input"))).toBe(true);
+  expect(messages.some((line) => line.startsWith("Parsed response"))).toBe(true);
+});

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { recordBrowserAiDebug } from "./debug-response";
 import { ApiError } from "@/lib/api/errors";
 
 export type AiOperation = "parse-resume" | "analyze-job" | "generate-resume" | "revise-resume" | "review-facts" | "correct-facts" | "structured";
@@ -18,7 +19,7 @@ export function aiSchemaIssues(error: unknown): AiSchemaIssue[] {
   });
 }
 
-/** Kept server-side for a single bounded rewrite; never included in API JSON. */
+/** Supports one bounded rewrite. Raw text is excluded from ordinary API errors; opt-in debug traces are separate. */
 export class AiOutputValidationError extends ApiError {
   constructor(public readonly responseText: string, public readonly issues: AiSchemaIssue[], public readonly callId: string) {
     super(502, "INVALID_AI_RESPONSE", `AI returned content that could not be validated${issues[0]?.path ? ` at ${issues[0].path}` : ""}. Reference: ${callId}. Try again.`);
@@ -41,11 +42,14 @@ export function startAiTrace(operation: AiOperation, request: { model: string; c
     const message = JSON.stringify({ source: "gemini", event, callId, operation, ...fields });
     if (warning) console.warn(message); else console.info(message);
   }
-  function payload(direction: string, data: unknown) {
+  function payload(direction: "request" | "response" | "error", data: unknown) {
     if (!fullPayloads) return;
     const serialized = redactCredentials(JSON.stringify(data));
     // Bound pathological provider output; ordinary accepted output is <=300k chars.
     const limited = serialized.slice(0, 1_000_000);
+    let browserPayload: unknown;
+    try { browserPayload = JSON.parse(limited); } catch { browserPayload = limited; }
+    recordBrowserAiDebug({ callId, operation, direction, payload: browserPayload, truncated: limited.length !== serialized.length });
     const parts: string[] = []; let part = ""; let bytes = 0;
     for (const char of limited) {
       const size = Buffer.byteLength(char);
