@@ -33,7 +33,8 @@ test("tailors an approved profile, saves locally, and recovers a readable result
     generationCalls++;
     const body = route.request().postDataJSON();
     expect(body.profile.status).toBe("verified");
-    expect(body.settings.emphasis).toBe("technical");
+    expect(body.settings.emphasis).toBe("balanced");
+    expect(body.settings.additionalInstructions).toBe("");
     expect(body.settings.targetLength).toBe("one-page");
     await route.fulfill({ json: { success: true, data: { resume } } });
   });
@@ -43,7 +44,8 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   });
   await page.goto("/dashboard");
   await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer to integrate REST APIs and build accessible applications.");
-  await page.getByLabel("Emphasis", { exact: true }).selectOption("technical");
+  await expect(page.getByLabel("Emphasis", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Additional instructions", { exact: true })).toHaveCount(0);
   await page.getByLabel("Target length", { exact: true }).selectOption("one-page");
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
   await expect(page.getByRole("heading", { name: "Resume saved locally" })).toBeVisible();
