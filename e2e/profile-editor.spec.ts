@@ -34,6 +34,7 @@ async function readProfiles(page: Page) {
 
 test("employment facts keep their IDs across edits, removal, and approval without reorder controls", async ({ page }) => {
   await openProfile(page);
+  await expect(page.getByRole("button", { name: "Save Draft", exact: true })).toHaveCount(0);
   await page.getByLabel("Full name", { exact: true }).fill("Alex Doe");
   await page.getByLabel("Professional headline", { exact: true }).fill("Software Engineer");
   await openSection(page, "Work experience");
@@ -131,7 +132,6 @@ test("all optional profile sections can be added, saved, reopened, and removed",
     await page.getByRole("button", { name: button, exact: true }).click();
     await page.getByLabel(label, { exact: true }).fill(value);
   }
-  await page.getByRole("button", { name: "Save Draft", exact: true }).click();
   await saved(page);
   const before = (await readProfiles(page)).draft!;
   for (const key of ["education", "skills", "projects", "certifications", "awards", "publications", "volunteerExperience", "memberships", "languages", "additionalAccomplishments"] as const) expect(before[key]).toHaveLength(1);

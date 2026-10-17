@@ -3,7 +3,6 @@ test("reset requires confirmation and returns to a fresh upload screen", async (
   await page.goto("/profile");
   await page.getByRole("button", { name: "Create draft manually" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Disposable test profile");
-  await page.getByRole("button", { name: "Save Draft", exact: true }).click();
   await expect(page.getByRole("status", { name: "Profile save status" })).toContainText("Saved");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings" }).click();
   page.once("dialog", (dialog) => dialog.dismiss());

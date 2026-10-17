@@ -27,7 +27,6 @@ for (const extension of ["pdf", "docx"]) {
     await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
     await expect(page.getByText("Draft profile", { exact: false })).toBeVisible();
     await page.getByLabel("Professional headline", { exact: true }).fill("Frontend Engineer");
-    await page.getByRole("button", { name: "Save Draft", exact: true }).click();
     await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
     await page.reload();
     await expect(page.getByLabel("Professional headline", { exact: true })).toHaveValue("Frontend Engineer");
@@ -67,7 +66,6 @@ test("rejects corrupt files and offers manual profile creation", async ({ page }
   await page.getByRole("button", { name: "Create draft manually" }).click();
   await expect(page).toHaveURL(/\/profile$/);
   await page.getByLabel("Full name", { exact: true }).fill("Manual Profile");
-  await page.getByRole("button", { name: "Save Draft", exact: true }).click();
   await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
   expect(calls).toBe(0);
 });
@@ -100,9 +98,9 @@ test("asks before replacing a resume and preserves the approved profile", async 
   await expect(page.locator("main aside")).not.toContainText("Your approved profile stays unchanged");
   await expect(page.locator("main aside")).not.toContainText("Add the sections you need");
   await expect(page.locator("main aside").getByRole("status")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Save Draft", exact: true }).locator("..").getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
+  await expect(page.getByRole("button", { name: "Save & Continue", exact: true }).locator("..").getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
   await page.locator("main header").screenshot({ path: testInfo.outputPath("profile-header-actions.png") });
-  await page.getByRole("button", { name: "Save Draft", exact: true }).locator("..").screenshot({ path: testInfo.outputPath("profile-save-controls.png") });
+  await page.getByRole("button", { name: "Save & Continue", exact: true }).locator("..").screenshot({ path: testInfo.outputPath("profile-save-controls.png") });
   const actions = page.locator("main header").getByRole("button", { name: "More profile actions" });
   await actions.focus(); await actions.press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: "Replace resume", exact: true })).toBeFocused();

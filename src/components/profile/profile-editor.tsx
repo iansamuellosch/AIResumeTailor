@@ -133,7 +133,7 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
           {sectionNavigation(true)}
         </details>
       </aside>
-      <form noValidate onSubmit={form.handleSubmit(saveDraft)} className="min-w-0 space-y-5">
+      <form noValidate onSubmit={(event) => event.preventDefault()} className="min-w-0 space-y-5">
         <fieldset disabled={disabled} className="min-w-0 space-y-5">
           <legend className="sr-only">Professional profile fields</legend>
           {editorSections.map(({ id, title }) => <details key={id} id={`section-${id}`} ref={(element) => { sectionRefs.current[id] = element; }} open={id === "personal" || id === "summary" ? true : undefined} className="scroll-mt-6 rounded-xl border bg-card">
@@ -156,7 +156,7 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
         {persistence.error && <p role="alert" aria-label="Profile storage error" className="text-sm text-destructive">{persistence.error}</p>}
         {persistence.conflict && <Button type="button" variant="outline" onClick={() => { if (window.confirm("Reload and discard unsaved edits on this page?")) window.location.reload(); }}>Reload saved profile</Button>}
         <div className="flex flex-wrap items-center gap-3 border-t pt-5">
-          <Button type="submit" variant="outline" disabled={disabled || persistence.conflict}>{saving ? "Saving…" : "Save Draft"}</Button>
+          {persistence.error && !persistence.conflict && <Button type="button" variant="outline" disabled={disabled} onClick={() => void saveDraft()}>{saving ? "Saving…" : "Retry saving"}</Button>}
           <Button type="button" disabled={disabled || persistence.conflict} onClick={() => void approve()}>{persistence.busy ? "Approving…" : "Save & Continue"}</Button>
           <span role="status" aria-label="Profile save status" className="text-xs text-muted-foreground sm:ml-auto">{disabled ? "Saving…" : persistence.status}</span>
         </div>
