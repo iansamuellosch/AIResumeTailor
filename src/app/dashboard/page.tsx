@@ -1,2 +1,7 @@
-import { FeaturePlaceholder } from "@/components/layout/feature-placeholder";
-export default function DashboardPage() { return <FeaturePlaceholder title="Your next opportunity" description="This will be your workspace for job descriptions, tailored resumes, and local resume history." milestone={4} />; }
+import { ProfileGate } from "@/components/dashboard/profile-gate";
+export default function DashboardPage() {
+  return <div className="max-w-2xl space-y-6">
+    <h1 className="text-3xl font-semibold tracking-tight">Your next opportunity</h1>
+    <ProfileGate />
+  </div>;
+}

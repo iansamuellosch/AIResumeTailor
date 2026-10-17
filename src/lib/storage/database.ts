@@ -1,7 +1,7 @@
 import Dexie, { type Table } from "dexie";
-import { professionalProfileSchema, type ProfessionalProfile } from "@/schemas/profile";
+import { professionalProfileSchema, profileDraftSchema, type ProfessionalProfile } from "@/schemas/profile";
 
-export interface ProfileRecord { key: "primary"; profile: ProfessionalProfile }
+export interface ProfileRecord { key: "primary"; profile: ProfessionalProfile; sourceDocumentId?: string }
 export interface UploadedDocument { id: string; name: string; mimeType: string; blob: Blob; createdAt: string }
 export interface AppSetting { key: string; value: unknown }
 // Reserved until the generated-resume schema is implemented in Milestone 4.
@@ -44,7 +44,8 @@ export function getDatabase(): ResumeDatabase {
 }
 
 export async function saveProfile(db: ResumeDatabase, input: unknown): Promise<ProfessionalProfile> {
-  const profile = professionalProfileSchema.parse(input);
+  const status = typeof input === "object" && input !== null && "status" in input ? input.status : undefined;
+  const profile = (status === "draft" ? profileDraftSchema : professionalProfileSchema).parse(input);
   try {
     const table = profile.status === "verified" ? db.profiles : db.profileDrafts;
     await table.put({ key: "primary", profile });
@@ -55,7 +56,7 @@ export async function readProfile(db: ResumeDatabase, status: "draft" | "verifie
   try {
     const record = await (status === "verified" ? db.profiles : db.profileDrafts).get("primary");
     if (!record) return undefined;
-    const profile = professionalProfileSchema.parse(record.profile);
+    const profile = (status === "draft" ? profileDraftSchema : professionalProfileSchema).parse(record.profile);
     if (profile.status !== status) throw new Error("Profile status does not match its store");
     return profile;
   } catch (cause) { throw new LocalStorageError("Could not read the local profile. Stored data has been preserved.", { cause }); }

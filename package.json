@@ -1,9 +1,9 @@
 {
   "name": "ai-resume-tailor",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "next dev",
@@ -13,17 +13,28 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "predev": "node scripts/copy-pdf-worker.mjs",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
+    "postinstall": "node scripts/copy-pdf-worker.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@hookform/resolvers": "^5.9.1",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dexie": "^4.4.6",
     "lucide-react": "^1.58.0",
+    "mammoth": "^1.13.0",
     "next": "^16.4.2",
+    "pdfjs-dist": "^6.4.299",
     "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-hook-form": "^7.90.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.7.0",
     "zod": "^4.6.7"
   },
