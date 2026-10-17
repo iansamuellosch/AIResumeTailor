@@ -2,6 +2,7 @@ import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/errors";
+import { providerError } from "./provider-error";
 
 export async function requestStructured<T>(schema: z.ZodType<T>, instructions: string, data: unknown, signal?: AbortSignal): Promise<T> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -29,7 +30,6 @@ export async function requestStructured<T>(schema: z.ZodType<T>, instructions: s
   } catch (error) {
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your local data is preserved. Try again.");
     if (error instanceof ApiError) throw error;
-    if (error && typeof error === "object" && "status" in error && error.status === 404) throw new ApiError(502, "AI_MODEL_UNAVAILABLE", "The configured AI model is unavailable. Update GEMINI_MODEL in the server environment and redeploy. Your local data is preserved.");
-    throw new ApiError(502, "AI_UNAVAILABLE", "AI processing is unavailable. Your local data is preserved. Try again later.");
+    throw providerError(error);
   } finally { clearTimeout(timer); signal?.removeEventListener("abort", abort); }
 }

@@ -18,6 +18,7 @@ Webpack is the verified production build path. The default Turbopack build may n
 | --- | --- |
 | `GEMINI_API_KEY` | Server-only Google Gemini key. Never prefix with `NEXT_PUBLIC_`. |
 | `GEMINI_MODEL` | Optional structured-output model available to the project; current application default is `gemini-3.8-flash`. |
+| `GEMINI_PARSE_MODEL` | Optional parsing-only override; set `gemini-3.5-flash-lite` for lower-latency extraction. Parsing uses this first, then `GEMINI_MODEL`, then defaults to `gemini-3.5-flash-lite`. |
 | `UPSTASH_REDIS_REST_URL` | Shared Redis REST endpoint for client/global counters. |
 | `UPSTASH_REDIS_REST_TOKEN` | Server-only Redis REST token. |
 | `RATE_LIMIT_SALT` | Long random secret used to HMAC client IPs for rate-limit keys. |
@@ -25,6 +26,8 @@ Webpack is the verified production build path. The default Turbopack build may n
 Vercel's Upstash integration may instead create `KV_REST_API_URL` and `KV_REST_API_TOKEN`. The app accepts that pair when both `UPSTASH_` variables are absent or blank, so duplicating integration credentials is unnecessary. A partially configured `UPSTASH_` pair fails closed; remove both overrides to use the integration. Neither `REDIS_URL` nor the read-only token can replace the REST write credentials. Add `GEMINI_API_KEY` separately in Vercel: local environment files are not deployed through Git.
 
 If an existing environment sets `GEMINI_MODEL=gemini-2.5-flash`, change it to `gemini-3.8-flash` and redeploy. Google rejects the older model for new users. A saved environment override takes precedence over the application's updated default. Provider 404 responses produce `AI_MODEL_UNAVAILABLE` without exposing provider details. See [Google's current model documentation](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash).
+
+Provider deadline errors (408/504) return `AI_TIMEOUT`; access, quota, and rejected-request failures have distinct safe error codes. Server diagnostics record only the numeric provider status, never provider messages or resume content. On October 17, 2026, a synthetic extraction with the full profile schema succeeded using `gemini-3.5-flash-lite`; `gemini-3.8-flash` returned deadline errors even on a minimal text request. This verifies that extraction configuration, not live generation/validation or future provider availability. Google describes [Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite) as optimized for document parsing.
 
 Vercel sets `VERCEL=1`. The limiter accepts client identity only from the Vercel-managed `x-vercel-forwarded-for` header on that platform. Do not substitute arbitrary `X-Forwarded-For` input. Other production hosts need an explicitly trusted proxy implementation before AI endpoints are enabled. Missing configuration, invalid identity, or a Redis error fails closed with a safe 503 response.
 

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { extractedProfileSchema, extractedDataToDraft } from "@/schemas/parse-resume";
 import { RESUME_EXTRACTION_INSTRUCTIONS } from "./prompts";
 import { ApiError } from "@/lib/api/errors";
+import { providerError } from "./provider-error";
 
 export async function parseResumeWithGemini(text: string, signal?: AbortSignal) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -16,7 +17,7 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const result = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
+      model: process.env.GEMINI_PARSE_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite",
       contents: [{ role: "user", parts: [{ text: JSON.stringify({ resumeText: text }) }] }],
       config: {
         systemInstruction: RESUME_EXTRACTION_INSTRUCTIONS,
@@ -34,8 +35,7 @@ export async function parseResumeWithGemini(text: string, signal?: AbortSignal) 
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (controller.signal.aborted) throw new ApiError(504, "AI_TIMEOUT", "AI processing timed out. Your file is saved locally. Try again.");
-    if (error && typeof error === "object" && "status" in error && error.status === 404) throw new ApiError(502, "AI_MODEL_UNAVAILABLE", "The configured AI model is unavailable. Update GEMINI_MODEL in the server environment and redeploy. Your file is saved locally.");
-    throw new ApiError(502, "AI_UNAVAILABLE", "AI processing is unavailable. Your file is saved locally. Try again later or create a draft manually.");
+    throw providerError(error);
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
