@@ -243,6 +243,8 @@ test("compact technology inputs and searchable categories preserve edits and sup
   await page.getByLabel("Category", { exact: true }).click();
   const search = page.getByRole("combobox", { name: "Search categories" });
   await search.fill("finance");
+  await expect(page.getByRole("dialog", { name: "Choose a skill category" })).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await page.getByRole("dialog", { name: "Choose a skill category" }).screenshot({ path: testInfo.outputPath("opaque-category-menu.png") });
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
   await search.press("ArrowDown"); await search.press("Enter");
   await expect(page.getByLabel("Category", { exact: true })).toHaveText("Finance & accounting");
