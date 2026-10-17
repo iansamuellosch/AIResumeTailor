@@ -4,7 +4,8 @@ import { ApiError, errorResponse } from "@/lib/api/errors";
 import { enforceAiRateLimit } from "@/lib/api/rate-limit";
 import { generateResumeWithGemini } from "@/lib/ai/tailoring";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Initial writing + at most one coverage rewrite, each with a 45-second deadline.
+export const maxDuration = 120;
 export async function POST(request: Request) {
   try {
     await enforceAiRateLimit(request);

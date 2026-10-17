@@ -11,6 +11,7 @@ import { ResumeDocument } from "./resume-document";
 import { ResumeEditor } from "./resume-editor";
 import { EvidencePanel } from "./evidence-panel";
 import { ValidationPanel } from "./validation-panel";
+import { TailoringOverview } from "./tailoring-overview";
 
 export function SavedResume({ id }: { id: string }) {
   const [record, setRecord] = useState<StoredResume>();
@@ -85,6 +86,7 @@ export function SavedResume({ id }: { id: string }) {
     <p role="status" aria-label="Resume save status" className="text-sm">{busy ? "Processing resume…" : dirty ? "Unsaved resume changes" : message || "Resume saved locally"}</p>
     {error && <p role="alert" aria-label="Resume error" className="rounded-lg border border-destructive p-4 text-sm text-destructive">{error}</p>}
     <ValidationPanel resume={resume} />
+    <TailoringOverview resume={resume} profile={record?.sourceProfile} />
     <ExportControls resume={resume} dirty={dirty} disabled={busy} />
     <EvidencePanel resume={resume} profile={record?.sourceProfile} />
     {editing && <ResumeEditor resume={resume} disabled={busy} onChange={(value) => { setResume(value); setDirty(true); setMessage(""); setError(""); }} />}

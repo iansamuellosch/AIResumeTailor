@@ -13,6 +13,7 @@ import { requestTailoredResume, type GenerationStage } from "@/lib/generation/cl
 
 const control = "mt-1.5 w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring";
 export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
+  const factCount = [...profile.experience, ...profile.projects].reduce((sum, entry) => sum + entry.responsibilities.length + entry.achievements.length + entry.technologies.length + ("quantifiableResults" in entry ? entry.quantifiableResults.length : Number(Boolean(entry.description))), 0);
   const form = useForm<DashboardInput>({ resolver: zodResolver(dashboardInputSchema), defaultValues: { jobDescription: "", company: "", jobTitle: "", jobUrl: "", notes: "", settings: defaultResumeSettings } });
   const [stage, setStage] = useState<GenerationStage>();
   const [error, setError] = useState("");
@@ -54,7 +55,9 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
   const errors = form.formState.errors;
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 text-sm">
-      <div><h2 className="font-semibold">Your profile is ready</h2><p>{profile.personalInfo.fullName} · Approved profile version {profile.version}</p></div>
+      <div><h2 className="font-semibold">Your profile is ready</h2><p>{profile.personalInfo.fullName} · Approved profile version {profile.version}</p><p className="mt-1 text-muted-foreground">{profile.experience.length} employment entries · {profile.projects.length} projects · {profile.skills.length} skills · {factCount} supporting facts</p>
+        {factCount < 4 && <p className="mt-2 max-w-xl">Your profile has little detailed evidence. Add missing responsibilities, achievements, and outcomes before generating if the original resume contains more detail.</p>}
+      </div>
       <Link href="/profile" className="font-medium underline underline-offset-4">Edit approved profile</Link>
     </div>
     <form onSubmit={(event) => void form.handleSubmit(generate)(event)} className="space-y-6">

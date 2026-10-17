@@ -25,7 +25,7 @@ export async function requestTailoredResume(profile: ProfessionalProfile, input:
   progress("Analyzing job description");
   const { data: { jobAnalysis } } = await post("/api/analyze-job", { jobDescription: input.jobDescription, company: input.company, jobTitle: input.jobTitle }, z.object({ success: z.literal(true), data: z.object({ jobAnalysis: jobAnalysisSchema }) }), signal);
   progress("Matching qualifications and generating resume");
-  const { data: { resume } } = await post("/api/generate-resume", { profile, jobAnalysis, settings: input.settings, notes: input.notes, jobUrl: input.jobUrl }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema }) }), signal);
+  const { data: { resume } } = await post("/api/generate-resume", { profile, jobAnalysis, settings: input.settings, notes: input.notes, jobUrl: input.jobUrl }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema }) }), signal, 105_000);
   if (signal?.aborted) throw new Error("Generation cancelled. Your saved data is preserved.");
   // Never accept a response for a different approved profile snapshot.
   if (resume.profileId !== profile.id || resume.profileVersion !== profile.version) throw new Error("The resume does not match your approved profile. Try again.");

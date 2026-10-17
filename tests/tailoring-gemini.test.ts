@@ -58,4 +58,26 @@ describe("Gemini tailoring", () => {
     await expect(analyzeJobWithGemini({ jobDescription: "A React engineering position." })).rejects.toMatchObject({ code: "AI_MODEL_UNAVAILABLE", message: expect.not.stringContaining("private provider details") });
     expect(generate.mock.calls[0][0].model).toBe("custom-model");
   });
+  it("revises an excessively sparse draft once using more of the available evidence", async () => {
+    const input = tailoringInput();
+    input.profile.experience[0].responsibilities = Array.from({ length: 8 }, (_, i) => ({ id: `fact-${i + 10}`, text: `Implemented a distinct React application feature ${i}.` }));
+    const sparse = selection(); sparse.experience[0].bullets[0].evidenceIds = ["fact-10"];
+    const fuller = selection(); fuller.summary = "Develops React applications and integrates verified features.";
+    fuller.experience[0].bullets = input.profile.experience[0].responsibilities.map((fact) => ({ text: fact.text, evidenceIds: [fact.id] }));
+    generate.mockResolvedValueOnce(response(sparse)).mockResolvedValueOnce(response(fuller));
+    const result = await generateResumeWithGemini(input);
+    expect(result.experience[0].bullets).toHaveLength(8);
+    expect(result.summary).toBe(fuller.summary);
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1][0].contents[0].parts[0].text).toContain("revisionRequirements");
+    expect(result.validation.status).toBe("pending-semantic-review");
+  });
+  it("rejects repeated under-generation rather than silently saving a weak draft", async () => {
+    const input = tailoringInput();
+    input.profile.experience[0].responsibilities = Array.from({ length: 8 }, (_, i) => ({ id: `fact-${i + 10}`, text: `Implemented a distinct React application feature ${i}.` }));
+    const sparse = selection(); sparse.experience[0].bullets[0].evidenceIds = ["fact-10"];
+    generate.mockResolvedValue(response(sparse));
+    await expect(generateResumeWithGemini(input)).rejects.toMatchObject({ code: "INSUFFICIENT_TAILORING" });
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
 });

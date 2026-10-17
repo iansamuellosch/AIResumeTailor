@@ -26,6 +26,7 @@ const selectedEntrySchema = z.object({ sourceId: id, bullets: z.array(generatedB
 export const resumeSelectionSchema = z.object({
   experience: z.array(selectedEntrySchema).max(20), projects: z.array(selectedEntrySchema).max(12),
   skillIds: z.array(id).max(60), educationIds: z.array(id).max(20), certificationIds: z.array(id).max(30),
+  headline: z.string().trim().max(160), summary: z.string().trim().max(1200),
 });
 const bullet = generatedBulletSchema.extend({ id });
 export const resumeExperienceSchema = z.object({

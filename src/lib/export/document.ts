@@ -31,7 +31,7 @@ export function resumeBlocks(resume: GeneratedResume): ResumeBlock[] {
   const dates = (start?: string, end?: string) => [formatMonth(start), formatMonth(end)].filter(Boolean).join(" - ");
   add("name", resume.contact.fullName, true);
   add("contact", join([resume.contact.email, resume.contact.phone, join([resume.contact.city, resume.contact.region, resume.contact.country])]), true);
-  add("contact", join([resume.contact.linkedInUrl, resume.contact.portfolioUrl, resume.contact.githubUrl, ...resume.contact.additionalWebsites.map((site) => site.url)]));
+  add("contact", join([...new Set([resume.contact.linkedInUrl, resume.contact.portfolioUrl, resume.contact.githubUrl, ...resume.contact.additionalWebsites.map((site) => site.url)])]));
   add("headline", resume.headline);
   if (resume.summary) { add("section", "Professional summary", true); add("text", resume.summary); }
   if (resume.experience.length) {

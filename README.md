@@ -148,3 +148,7 @@ Milestone 5 tests cover deterministic mismatches, semantic verdict coverage, uns
 - npm audit also reports 3 moderate findings through Mammoth’s CLI-only `argparse → sprintf-js` chain (GHSA-hp3w-g68c-fv3c). The application imports the browser bundle, which does not include argparse/sprintf; it never invokes Mammoth’s CLI. The suggested forced downgrades are incompatible/obsolete and were not applied. Recheck upstream patches before public release.
 
 References: [Gemini structured output](https://ai.google.dev/gemini-api/docs/generate-content/structured-output), [PDF.js](https://mozilla.github.io/pdf.js/examples/), [Mammoth](https://github.com/mwilliamson/mammoth.js), [Vercel proxy headers](https://vercel.com/docs/headers/request-headers), [Upstash rate limiting](https://upstash.com/docs/redis/sdks/ratelimit-ts/features), [pdf-lib](https://pdf-lib.js.org/), [docx](https://docx.js.org/).
+
+## Tailoring quality
+
+The writer produces a role-specific headline and summary, preserves substantive supported accomplishments, and uses evidence-limited length budgets rather than minimizing the document. Under-generation, repeated bullets, and major omissions trigger at most one editorial rewrite before normal deterministic/semantic factual review. Preview includes source coverage and a summary comparison; dashboard counts help identify incomplete approved profiles. These checks do not promise an exact page count, stronger hiring outcomes, or an ATS score. See docs/deployment.md for limits and request budgets.

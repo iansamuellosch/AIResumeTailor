@@ -39,7 +39,7 @@ export function assembleResume(input: GenerateResumeInput, evidence: SelectedEvi
   return generatedResumeSchema.parse({
     id: crypto.randomUUID(), profileId: input.profile.id, profileVersion: input.profile.version,
     jobAnalysis: input.jobAnalysis, settings: input.settings, jobUrl: input.jobUrl, notes: input.notes,
-    contact: input.profile.personalInfo, headline: input.profile.headline, summary: input.profile.summary,
+    contact: input.profile.personalInfo, headline: selection.headline, summary: selection.summary,
     experience, projects, skills, education, certifications,
     validation: { status: "pending-semantic-review", issues: [{ id: crypto.randomUUID(), severity: "warning", fieldPath: "", message: "Evidence references were checked. Semantic factual validation is pending; review all wording against your approved profile. An evidence ID does not prove a claim.", evidenceIds: [] }] },
     createdAt: now, updatedAt: now,

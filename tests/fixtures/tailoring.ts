@@ -17,7 +17,7 @@ export function tailoringInput(): GenerateResumeInput {
   return { profile: professionalProfileSchema.parse(profile), jobAnalysis: { jobTitle: "Frontend Engineer", requiredSkills: ["React", "REST APIs"], preferredSkills: [], keywords: ["React"], qualifications: [], responsibilities: ["Develop React applications"] }, settings: { ...defaultResumeSettings }, notes: "", jobUrl: "" };
 }
 export function selection(): ResumeSelection {
-  return { experience: [{ sourceId: "job-1", bullets: [{ text: "Integrated REST APIs into React applications.", evidenceIds: ["fact-1"] }] }], projects: [], skillIds: ["skill-1"], educationIds: [], certificationIds: [] };
+  return { headline: "Software Engineer", summary: "Develops React applications.", experience: [{ sourceId: "job-1", bullets: [{ text: "Integrated REST APIs into React applications.", evidenceIds: ["fact-1"] }] }], projects: [], skillIds: ["skill-1"], educationIds: [], certificationIds: [] };
 }
 export function savedResume() {
   const input = tailoringInput();

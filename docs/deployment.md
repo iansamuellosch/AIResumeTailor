@@ -8,7 +8,7 @@ The application is implemented for Vercel with browser-local storage and server-
 2. Run `npm ci`, `npm run typecheck`, `npm run lint`, and `npm test`.
 3. Build with `npm run build -- --webpack`. The prebuild script copies the matching PDF.js worker to `public/`. The bundled `/fonts/` files and their license must remain in the deployment.
 4. In Vercel, select the Next.js framework, Node.js 24, install command `npm ci`, and build command `npm run build -- --webpack`. Keep the default Next.js output handling; this application needs Route Handlers and is not a static export.
-5. Configure the environment variables below for both preview and production deployments, then redeploy. The validation route requests a 180-second duration; choose a deployment configuration supporting that duration. Parsing, analysis, and generation use 60-second route budgets.
+5. Configure the environment variables below for both preview and production deployments, then redeploy. The validation route requests a 180-second duration; choose a deployment configuration supporting that duration. Parsing and analysis use 60-second route budgets; generation allows 120 seconds for one bounded coverage rewrite.
 
 Webpack is the verified production build path. The default Turbopack build may need local process/port access unavailable in restricted execution environments. It remains selectable through the standard `npm run build` script.
 
@@ -34,7 +34,7 @@ Provider JSON schemas omit `maxItems` array caps: the job-analysis schema with t
 
 Vercel sets `VERCEL=1`. The limiter accepts client identity only from the Vercel-managed `x-vercel-forwarded-for` header on that platform. Do not substitute arbitrary `X-Forwarded-For` input. Other production hosts need an explicitly trusted proxy implementation before AI endpoints are enabled. Missing configuration, invalid identity, or a Redis error fails closed with a safe 503 response.
 
-All AI routes share 5 HTTP requests per client per 10 minutes and 200 per day globally. A successful tailoring run uses analysis, generation, and validation requests. A validation request makes up to three Gemini calls, including one optional correction/revalidation. The budget therefore bounds calls but is not a fixed monetary cap; set provider quotas appropriate to the deployment. Existing `resume:parse:*` Redis key prefixes are retained across upgrades to preserve active counters. Development-only in-memory limits are not distributed production protection.
+All AI routes share 5 HTTP requests per client per 10 minutes and 200 per day globally. A successful tailoring run uses analysis, generation, and validation requests. Generation makes at most two Gemini calls, including one optional coverage rewrite. A validation request makes up to three Gemini calls, including one optional factual correction/revalidation. The budget therefore bounds calls but is not a fixed monetary cap; set provider quotas appropriate to the deployment. Existing `resume:parse:*` Redis key prefixes are retained across upgrades to preserve active counters. Development-only in-memory limits are not distributed production protection.
 
 ## Production verification
 
@@ -70,3 +70,11 @@ The audit still reports the pre-existing eight transitive findings: five high-se
 Automated axe checks cover WCAG A/AA rules on the core resume/settings workflows; manual keyboard and assistive-technology review still matters. Browser tests cover Chromium desktop and mobile emulation, not every browser or device. No claim is made that AI validation guarantees factual accuracy, that a specific ATS vendor has certified the template, or that the application has already been deployed.
 
 References: [Vercel environment variables](https://vercel.com/docs/environment-variables), [Vercel function duration](https://vercel.com/docs/functions/configuring-functions/duration), [Vercel request headers](https://vercel.com/docs/headers/request-headers), [Upstash rate limiting](https://upstash.com/docs/redis/sdks/ratelimit-ts/features).
+
+## Tailoring depth and editorial behavior
+
+Generation writes a job-specific headline and summary rather than copying the approved profile. It receives the original professional positioning plus a wider relevance-ranked evidence pool (up to 20 roles and 24/40 facts per role depending on length). Required skills receive more ranking weight than incidental keyword overlap; common stopwords do not affect ranking. No contact details are sent to the writing model. Source dates are supplied for chronological ordering; they are never rewritten.
+
+An evidence-limited content plan aims for up to 10 bullets for one page, 20 for two pages, and 16 for automatic. These are content budgets, not promised page counts or minimum filler. A pool of job-matching entries with at least six substantive facts triggers a conservative coverage floor of 60% of the target, along with distinct-evidence, education, relevant-skill and copied-summary checks. One editorial rewrite is allowed; an unresolved sparse/duplicated draft is rejected with INSUFFICIENT_TAILORING rather than saved as a successful result. Factual validation still runs separately, including on rewritten headlines and summaries. Counts cannot establish persuasiveness or ATS effectiveness.
+
+Dashboard source counts help reveal incomplete extraction before generation. Preview coverage and the summary comparison use the immutable source snapshot, do not change the profile, and are not exported in PDF/DOCX. Older saved resumes remain compatible; generate a new resume to use the improved writer.
