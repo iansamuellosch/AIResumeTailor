@@ -34,3 +34,14 @@ it("reviews a saved draft independently, preserving failed verdicts and sending 
   expect(fetcher).toHaveBeenCalledTimes(1); expect(fetcher.mock.calls[0][0]).toBe("/api/validate-resume");
   expect(JSON.parse(fetcher.mock.calls[0][1].body).reviewPermit).toBe("reserved");
 });
+
+it("logs exact quality warnings even without full-payload debugging and returns the draft", async () => {
+  const input = tailoringInput();
+  const resume = { ...savedResume(), profileId: input.profile.id, qualityWarnings: ["The draft omitted primary education."] };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, data: { resume } })));
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    expect((await requestTailoredResume(input.profile, dashboard, vi.fn())).resume).toEqual(resume);
+    expect(warn).toHaveBeenCalledWith("[Gemini] Resume quality warnings", resume.qualityWarnings);
+  } finally { warn.mockRestore(); }
+});

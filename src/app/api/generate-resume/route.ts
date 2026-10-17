@@ -5,7 +5,7 @@ import { ApiError, errorResponse } from "@/lib/api/errors";
 import { reserveTailoringRun, issueReviewPermit } from "@/lib/api/rate-limit";
 import { generateResumeWithGemini } from "@/lib/ai/tailoring";
 export const runtime = "nodejs";
-// Initial writing + at most one coverage rewrite, each with a 45-second deadline.
+// Initial writing + at most one schema repair, each with a 45-second deadline.
 export const maxDuration = 120;
 export async function POST(request: Request) {
   return withAiDebug(async () => {

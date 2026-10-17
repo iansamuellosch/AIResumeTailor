@@ -1,4 +1,5 @@
 "use client";
+import { QualityWarnings } from "@/components/resume/quality-warnings";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -117,6 +118,6 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
     <div aria-live="polite" aria-atomic="true">{stage && <p role="status" className="text-sm font-medium">{stage}…</p>}</div>
     {error && <p role="alert" className="rounded-lg border border-destructive p-4 text-sm text-destructive">{error}</p>}
     {pending && !busy && <div className="space-y-3 rounded-xl border bg-card p-5"><p className="text-sm">Your generated result is still in this tab and has not been saved. Retry saving before closing or reloading.</p><Button onClick={() => void retrySave()}>Retry saving resume</Button></div>}
-    {saved && <div className="space-y-3 rounded-xl border bg-card p-5"><h2 className="font-semibold">Resume saved locally</h2><p className="text-sm text-muted-foreground">{saved.jobAnalysis.jobTitle || "Tailored resume"}{saved.jobAnalysis.company ? ` · ${saved.jobAnalysis.company}` : ""}. Factual review: {saved.validation.status}. Review the result before using it.</p>{saved.validation.status !== "passed" && <Button disabled={busy || !!pending} onClick={() => void retryReview()}>Retry factual review</Button>}<Button asChild><Link href={`/resume/${saved.id}`}>Open saved resume</Link></Button></div>}
+    {saved && <div className="space-y-3 rounded-xl border bg-card p-5"><h2 className="font-semibold">Resume saved locally</h2><p className="text-sm text-muted-foreground">{saved.jobAnalysis.jobTitle || "Tailored resume"}{saved.jobAnalysis.company ? ` · ${saved.jobAnalysis.company}` : ""}. Factual review: {saved.validation.status}. Review the result before using it.</p><QualityWarnings warnings={saved.qualityWarnings} />{saved.validation.status !== "passed" && <Button disabled={busy || !!pending} onClick={() => void retryReview()}>Retry factual review</Button>}<Button asChild><Link href={`/resume/${saved.id}`}>Open saved resume</Link></Button></div>}
   </div>;
 }

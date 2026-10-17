@@ -23,7 +23,7 @@ export async function generateResumeWithGemini(input: TailorResumeInput, signal?
   const data = { jobDescription: input.jobDescription, company: input.company, jobTitle: input.jobTitle, evidence, contentPlan: contentPlan(evidence, input.settings), settings: input.settings, notes: input.notes };
   const instructions = `${JOB_ANALYSIS_INSTRUCTIONS}\nAnalyze the supplied raw job description first, then use that analysis to write the tailored resume. Return jobAnalysis and selection in the specified schema in ONE response. Text-matching scores are relevance hints, not verified job requirements.\n${RESUME_GENERATION_INSTRUCTIONS}`;
   let revision: Record<string, unknown> = {};
-  // Two calls total: the second repairs structure OR coverage, never an unbounded loop.
+  // Only invalid structured output gets one repair. Editorial quality is advisory.
   for (let attempt = 0; attempt < 2; attempt++) {
     let output;
     try {
@@ -37,8 +37,11 @@ export async function generateResumeWithGemini(input: TailorResumeInput, signal?
     }
     const resume = assembleResume({ ...input, jobAnalysis: output.jobAnalysis }, evidence, output.selection);
     const issues = selectionQualityIssues(evidence, input.settings, output.selection);
-    if (!issues.length) return resume;
-    revision = { previousDraft: output, revisionRequirements: issues };
+    if (issues.length) {
+      resume.qualityWarnings = issues;
+      console.warn(JSON.stringify({ source: "gemini", event: "quality_warnings", resumeId: resume.id, reasons: issues }));
+    }
+    return resume;
   }
-  throw new ApiError(422, "INSUFFICIENT_TAILORING", "The draft omitted too much useful profile information or repeated generic content, so it was not saved. Try generating again. Your approved profile is preserved.");
+  throw new ApiError(502, "INVALID_AI_RESPONSE", "AI could not produce a valid structured draft. Try again.");
 }

@@ -55,6 +55,7 @@ export const generatedResumeSchema = z.object({
   contact: personalInfoSchema, headline: text, summary: text,
   experience: z.array(resumeExperienceSchema), projects: z.array(resumeProjectSchema),
   education: z.array(educationSchema), skills: z.array(skillSchema), certifications: z.array(certificationSchema),
+  qualityWarnings: z.array(text.min(1)).max(20).optional(),
   validation: resumeValidationSchema, createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
 }).refine((value) => value.updatedAt >= value.createdAt, { message: "Update cannot precede creation", path: ["updatedAt"] });
 export type ResumeSettings = z.infer<typeof resumeSettingsSchema>;

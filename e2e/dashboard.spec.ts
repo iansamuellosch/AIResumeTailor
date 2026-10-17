@@ -141,3 +141,30 @@ test("recovers a saved pending draft after reload and retries review without reg
   await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
   expect(writes).toBe(1); expect(reviews).toBe(2);
 });
+
+test("saves advisory quality warnings, logs their reasons and allows export after factual review", async ({ page }) => {
+  const input = await seedApprovedProfile(page);
+  const warning = "The draft has only 1 distinct bullets despite enough source material for at least 5.";
+  const resume = { ...assembleResume(input, selectEvidence(input.profile, input.jobAnalysis, input.settings), selection()), qualityWarnings: [warning] };
+  let writes = 0; let reviews = 0; const messages: string[] = [];
+  page.on("console", (message) => messages.push(message.text()));
+  await page.route("**/api/generate-resume", async (route) => { writes++; await route.fulfill({ json: { success: true, data: { resume } } }); });
+  await page.route("**/api/validate-resume", async (route) => {
+    reviews++;
+    await route.fulfill({ json: { success: true, data: { resume: { ...route.request().postDataJSON().resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } });
+  });
+  await page.goto("/dashboard");
+  await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer building accessible applications.");
+  await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
+  await expect(page.getByText("Factual review: passed", { exact: false })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Resume quality warnings" })).toContainText(warning);
+  expect(messages.some((message) => message.includes("[Gemini] Resume quality warnings"))).toBe(true);
+  await page.getByRole("link", { name: "Open saved resume" }).click();
+  await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Resume quality warnings" })).toContainText(warning);
+  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export PDF", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Export DOCX", exact: true })).toBeEnabled();
+  expect(writes).toBe(1); expect(reviews).toBe(1);
+});
