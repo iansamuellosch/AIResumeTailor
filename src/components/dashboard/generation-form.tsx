@@ -110,7 +110,7 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
         </div>
         <p className="text-xs leading-5 text-muted-foreground">Target length guides content selection. Pagination will be finalized during export.</p>
       </CardContent></Card>
-      <p className="text-sm leading-6 text-muted-foreground">Generating sends the job description, relevant approved professional facts, and notes to Google Gemini. Your approved profile passes temporarily through the application server; contact details are excluded from generation requests to Gemini. Generated wording is checked against its evidence, with at most one correction attempt. Review the result yourself; validation cannot guarantee perfect accuracy. Results are saved locally.</p>
+      <p className="text-sm leading-6 text-muted-foreground">Your job description and relevant profile information are sent to Google Gemini. Resumes are saved in this browser. Review the generated resume for accuracy.</p>
       <Button type="submit" size="lg" disabled={busy || !!pending}>{busy ? "Processing…" : "Generate Tailored Resume"}</Button>
     </form>
     <div aria-live="polite" aria-atomic="true">{stage && <p role="status" className="text-sm font-medium">{stage}…</p>}</div>
