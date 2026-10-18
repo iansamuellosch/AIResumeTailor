@@ -17,7 +17,6 @@ import { ResumeDocument } from "./resume-document";
 import { ResumeEditor } from "./resume-editor";
 import { EvidencePanel } from "./evidence-panel";
 import { QualityWarnings } from "./quality-warnings";
-import { TailoringOverview } from "./tailoring-overview";
 
 export function SavedResume({ id }: { id: string }) {
   const [record, setRecord] = useState<StoredResume>();
@@ -86,7 +85,7 @@ export function SavedResume({ id }: { id: string }) {
       setRecord(updated);
       // Keep unsaved text edits in this tab. Only layout is saved by this action.
       setResume({ ...resume, updatedAt: updated.updatedAt, settings: { ...resume.settings, template } });
-      setMessage(`${resumeTemplates[template].name} layout saved.`);
+      setMessage("");
       setLayoutsExpanded(false);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save the layout. Try again."); }
     finally { lock.current = false; setBusy(false); }
@@ -149,7 +148,6 @@ export function SavedResume({ id }: { id: string }) {
       </aside>
     </div>
     {!!resume.qualityWarnings?.length && <details className="rounded-xl border bg-card p-4"><summary className="cursor-pointer font-semibold">Quality suggestions ({resume.qualityWarnings.length})</summary><div className="mt-4"><QualityWarnings warnings={resume.qualityWarnings} /></div></details>}
-    {record?.sourceProfile && <details className="rounded-xl border bg-card p-4"><summary className="cursor-pointer font-semibold">How this resume uses your profile</summary><div className="mt-4"><TailoringOverview resume={resume} profile={record.sourceProfile} /></div></details>}
     <EvidencePanel resume={resume} profile={record?.sourceProfile} />
   </div>;
 }

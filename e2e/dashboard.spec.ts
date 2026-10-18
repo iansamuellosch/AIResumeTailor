@@ -66,7 +66,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   const layoutControl = page.getByRole("button", { name: "Change resume layout", exact: true });
   if (await layoutControl.isVisible()) await layoutControl.click();
   await page.getByText("Compact", { exact: true }).click();
-  await expect(page.getByRole("status", { name: "Resume save status" })).toHaveText("Compact layout saved.");
+  await expect(page.getByRole("article", { name: "Saved resume" })).toHaveAttribute("data-layout", "compact");
   await expect(page.getByRole("region", { name: "Factual validation" })).toHaveCount(0);
   expect(generationCalls).toBe(1); expect(reviewCalls).toBe(1);
   await page.reload();
