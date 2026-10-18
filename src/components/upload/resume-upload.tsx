@@ -77,7 +77,7 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
   return (
     <section aria-labelledby="upload-title" className="space-y-5">
       {!onComplete && (verified || draft) && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           {verified && <Button asChild variant="outline"><Link href="/dashboard">Continue to Dashboard</Link></Button>}
           <Button asChild variant="outline"><Link href="/profile">{draft ? "Continue reviewing draft" : "Edit Profile"}</Link></Button>
         </div>
@@ -109,7 +109,7 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
         {document && <p className="mt-4 break-words text-sm text-muted-foreground">{document.name}</p>}
       </div>
       {error && <p role="alert" aria-label="Upload error" className="text-sm leading-6 text-destructive">{error}</p>}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         {document && <Button variant="outline" disabled={disabled} onClick={() => void processUpload()}>Retry saved resume</Button>}
         <Button variant="link" className="px-0" disabled={disabled} onClick={() => void startManually()}>Start from scratch</Button>
         {onCancel && <Button variant="outline" disabled={disabled} onClick={onCancel}>Back to profile</Button>}
