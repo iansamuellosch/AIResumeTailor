@@ -42,11 +42,12 @@ export const resumeProjectSchema = z.object({
   startDate: text.optional(), endDate: text.optional(), bullets: z.array(bullet),
 });
 export const resumeValidationSchema = z.object({
-  status: z.enum(["pending-semantic-review", "passed", "needs-review", "failed"]),
+  status: z.enum(["pending-semantic-review", "passed", "needs-review", "failed", "manually-edited"]),
   checkedAt: z.iso.datetime().optional(), correctionAttempted: z.boolean().optional(),
   issues: z.array(z.object({ id, severity: z.enum(["error", "warning"]), fieldPath: text, message: text, evidenceIds: z.array(id) })),
 }).superRefine((result, ctx) => {
-  if (result.status !== "pending-semantic-review" && !result.checkedAt) ctx.addIssue({ code: "custom", path: ["checkedAt"], message: "A completed review needs a timestamp" });
+  if (!["pending-semantic-review", "manually-edited"].includes(result.status) && !result.checkedAt) ctx.addIssue({ code: "custom", path: ["checkedAt"], message: "A completed review needs a timestamp" });
+  if (result.status === "manually-edited" && (result.checkedAt || result.correctionAttempted !== undefined || result.issues.length)) ctx.addIssue({ code: "custom", path: ["status"], message: "Manual edits must not claim an AI review" });
   const errors = result.issues.some((issue) => issue.severity === "error");
   if ((result.status === "passed" && result.issues.length) || (result.status === "needs-review" && (!result.issues.length || errors)) || (result.status === "failed" && !errors)) ctx.addIssue({ code: "custom", path: ["status"], message: "Review status does not match its issues" });
 });

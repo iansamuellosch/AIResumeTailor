@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { GeneratedResume } from "@/schemas/resume";
-import { editableResumeFields, replaceResumeText, pendingValidation } from "@/lib/generation/editing";
+import { editableResumeFields, replaceResumeText, manualEditValidation } from "@/lib/generation/editing";
 import { ResumeDocument } from "./resume-document";
 import { InlineResumeText } from "./inline-resume-text";
 
@@ -18,7 +18,7 @@ export function ResumeEditor({ resume, disabled, onChange }: { resume: Generated
       if (!field) return part.text;
       const label = field.label.charAt(0).toUpperCase() + field.label.slice(1);
       const name = ["Contact", "Summary"].includes(field.group) ? label : `${field.group}: ${label}`;
-      return <InlineResumeText id={`edit-${field.path}`} value={field.value} label={name} date={/Date$/.test(field.path)} multiline={field.multiline} disabled={disabled} onChange={(text) => onChange({ ...replaceResumeText(resume, field.path, text), validation: pendingValidation() })} />;
+      return <InlineResumeText id={`edit-${field.path}`} value={field.value} label={name} date={/Date$/.test(field.path)} multiline={field.multiline} disabled={disabled} onChange={(text) => onChange({ ...replaceResumeText(resume, field.path, text), validation: manualEditValidation() })} />;
     }} />
   </section>;
 }

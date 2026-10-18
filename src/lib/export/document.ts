@@ -6,7 +6,7 @@ export interface ResumePart { text: string; path?: string }
 export interface ResumeBlock { key: string; kind: ResumeBlockKind; text: string; parts: ResumePart[]; keepNext?: boolean }
 export function assertExportable(input: unknown): GeneratedResume {
   const resume = generatedResumeSchema.parse(input);
-  if (resume.validation.status === "pending-semantic-review" || resume.validation.status === "failed" || resume.validation.issues.some((issue) => issue.severity === "error")) throw new Error("Check facts and resolve validation errors before exporting this resume.");
+  if (resume.validation.status === "pending-semantic-review" || resume.validation.status === "failed" || resume.validation.issues.some((issue) => issue.severity === "error")) throw new Error("Finish AI generation checks, or edit and save this resume yourself before downloading.");
   if (!resume.contact.fullName.trim()) throw new Error("Add your name before exporting.");
   return resume;
 }

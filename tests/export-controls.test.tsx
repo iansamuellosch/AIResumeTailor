@@ -23,3 +23,14 @@ it("shows validation warnings before export", () => {
   const resume = exportFixture(); resume.validation = { status: "needs-review", checkedAt: new Date().toISOString(), issues: [{ id: "warning", severity: "warning", fieldPath: "summary", message: "Review ambiguous wording.", evidenceIds: [] }] };
   render(<ExportControls resume={resume} />); expect(screen.getByText("Review ambiguous wording.")).toBeInTheDocument(); expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
 });
+
+it("allows PDF and Word downloads for saved manual edits without an AI review", async () => {
+  const resume = { ...exportFixture(), validation: { status: "manually-edited" as const, issues: [] } };
+  vi.mocked(downloadResume).mockResolvedValue({ pageCount: 1 });
+  render(<ExportControls resume={resume} compact />);
+  expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Download Word" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Download Word" }));
+  await screen.findByText(/Editable Word document downloaded/);
+  expect(downloadResume).toHaveBeenCalledWith(resume, "docx");
+});

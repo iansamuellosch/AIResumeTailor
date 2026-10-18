@@ -40,13 +40,13 @@ export function ResumeHistory() {
   }
   return <section aria-labelledby="history-heading" className="space-y-4 border-t pt-8">
     <h2 id="history-heading" className="text-xl font-semibold">Resume history</h2>
-    <p className="text-sm text-muted-foreground">Saved in this browser, most recently modified first. JSON downloads contain structured resume data. PDF and editable Word exports are available for reviewed resumes.</p>
+    <p className="text-sm text-muted-foreground">Saved in this browser, most recently modified first. JSON downloads contain structured resume data. PDF and editable Word exports are available after generation checks or saving your own edits.</p>
     {!loaded && <p>Loading resume history…</p>}{error && <p role="alert">{error}</p>}
     {!!unreadable && <p role="alert">{unreadable} saved record(s) could not be read and have been preserved.</p>}
     {loaded && !resumes.length && <p className="text-sm text-muted-foreground">No saved resumes yet.</p>}
     {resumes.map((resume) => <article key={resume.id} className="space-y-3 rounded-xl border bg-card p-5">
       <h3 className="font-semibold">{resume.jobAnalysis.jobTitle || "Tailored resume"}{resume.jobAnalysis.company ? ` · ${resume.jobAnalysis.company}` : ""}</h3>
-      <p className="text-xs leading-5 text-muted-foreground">Created {new Date(resume.createdAt).toLocaleString()} · Modified {new Date(resume.updatedAt).toLocaleString()} · {resumeTemplates[resume.settings.template].name} · {resume.validation.status}</p>
+      <p className="text-xs leading-5 text-muted-foreground">Created {new Date(resume.createdAt).toLocaleString()} · Modified {new Date(resume.updatedAt).toLocaleString()} · {resumeTemplates[resume.settings.template].name}</p>
       <div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href={`/resume/${resume.id}`}>Open resume</Link></Button><Button variant="outline" onClick={() => void download(resume)}>Download JSON</Button><Button disabled={busy} variant="ghost" onClick={() => void remove(resume)}>Delete resume</Button></div>
       <details><summary className="cursor-pointer text-sm font-medium">Document downloads</summary><div className="mt-3"><ExportControls resume={resume} disabled={busy} /></div></details>
     </article>)}

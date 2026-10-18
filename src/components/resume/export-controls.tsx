@@ -8,7 +8,7 @@ export function ExportControls({ resume, disabled = false, dirty = false, editin
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [message, setMessage] = useState("");
   const locked = useRef(false);
   const blocked = editing || dirty || resume.validation.status === "pending-semantic-review" || resume.validation.status === "failed";
-  const help = editing ? "Save your changes or cancel editing to return to the preview." : dirty ? "Save your edits before downloading." : resume.validation.status === "failed" ? "Correct the flagged claims and check facts again before downloading." : "Run a fact check before downloading this resume.";
+  const help = editing ? "Save your changes or cancel editing to return to the preview." : dirty ? "Save your edits before downloading." : resume.validation.status === "failed" ? "AI generation found unsupported claims. Edit and save the resume to correct them before downloading." : "AI generation checks are incomplete. Retry from the dashboard, or edit and save the resume yourself.";
   async function exportDocument(format: ExportFormat) {
     if (locked.current || blocked || disabled) return;
     locked.current = true; setBusy(true); setError(""); setMessage("");
@@ -21,7 +21,7 @@ export function ExportControls({ resume, disabled = false, dirty = false, editin
   }
   return <section aria-label="Resume export" className="space-y-3 rounded-xl border bg-card p-5">
     <h2 className="font-semibold">Download your resume</h2>
-    <p className="text-sm text-muted-foreground">{compact ? "Download the layout shown in the preview." : "Files are created on your device. Review your resume and any warnings before using it."}</p>
+    <p className="text-sm text-muted-foreground">{compact ? "Review your resume before using it. Downloads use the layout shown here." : "Files are created on your device. Review your resume and any warnings before using it."}</p>
     {!compact && resume.validation.status === "needs-review" && <details><summary className="cursor-pointer text-sm font-medium">Validation warnings to review</summary><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{resume.validation.issues.map((issue) => <li key={issue.id}>{issue.message}</li>)}</ul></details>}
     {blocked && <p id={`export-help-${resume.id}`} className="text-sm text-muted-foreground">{help}</p>}
     <div className={compact ? "grid gap-2" : "flex flex-wrap gap-2"}><Button disabled={disabled || blocked || busy} aria-describedby={blocked ? `export-help-${resume.id}` : undefined} onClick={() => void exportDocument("pdf")}>Download PDF</Button><Button variant="outline" disabled={disabled || blocked || busy} aria-describedby={blocked ? `export-help-${resume.id}` : undefined} onClick={() => void exportDocument("docx")}>Download Word</Button></div>

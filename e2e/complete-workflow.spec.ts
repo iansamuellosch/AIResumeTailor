@@ -8,13 +8,14 @@ import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 
 for (const layout of ["Modern", "Classic", "Compact"]) {
-test(`${layout}: upload, approve, tailor, edit, validate, export both formats, and recover locally`, async ({ page }, testInfo) => {
+test(`${layout}: upload, approve, tailor, validate, edit, export both formats, and recover locally`, async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const input = tailoringInput(); const draft = { ...input.profile, status: "draft", verifiedAt: undefined };
   await page.route("**/api/parse-resume", (route) => route.fulfill({ json: { success: true, data: { profile: draft } } }));
   await page.route("**/api/analyze-job", (route) => route.fulfill({ json: { success: true, data: { jobAnalysis: input.jobAnalysis } } }));
   await page.route("**/api/generate-resume", async (route) => { const body = { ...route.request().postDataJSON(), jobAnalysis: input.jobAnalysis }; const resume = assembleResume(body, selectEvidence(body.profile, body.jobAnalysis, body.settings), selection()); await route.fulfill({ json: { success: true, data: { resume } } }); });
-  await page.route("**/api/validate-resume", async (route) => { const { resume } = route.request().postDataJSON(); await route.fulfill({ json: { success: true, data: { resume: { ...resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } }); });
+  let reviewCalls = 0;
+  await page.route("**/api/validate-resume", async (route) => { reviewCalls++; const { resume } = route.request().postDataJSON(); await route.fulfill({ json: { success: true, data: { resume: { ...resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } }); });
   await page.goto("/");
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   await page.getByLabel("Choose a resume file").setInputFiles("e2e/fixtures/resume.pdf");
@@ -37,12 +38,12 @@ test(`${layout}: upload, approve, tailor, edit, validate, export both formats, a
   await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeDisabled();
   await expect(page.getByRole("article", { name: "Saved resume" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("resume-editor.png"), fullPage: true });
-  await expect(page.getByRole("button", { name: "Check facts", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("region", { name: "Resume text editor" })).toHaveCount(0);
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Develops applications with React.");
-  await page.getByRole("button", { name: "Check facts", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  expect(reviewCalls).toBe(1);
+  await expect(page.getByRole("region", { name: "Factual validation" })).toHaveCount(0);
   const pdfDownload = page.waitForEvent("download"); await page.getByRole("button", { name: "Download PDF", exact: true }).click();
   const pdf = await pdfDownload; expect(pdf.suggestedFilename()).toBe("Alex_Doe_Frontend_Engineer.pdf");
   const pdfBytes = await readFile((await pdf.path())!); expect(pdfBytes.subarray(0, 4).toString()).toBe("%PDF"); expect((await PDFDocument.load(pdfBytes)).getPageCount()).toBeGreaterThan(0);
@@ -50,6 +51,8 @@ test(`${layout}: upload, approve, tailor, edit, validate, export both formats, a
   const docx = await docxDownload; expect(docx.suggestedFilename()).toBe("Alex_Doe_Frontend_Engineer.docx");
   const text = await mammoth.extractRawText({ buffer: await readFile((await docx.path())!) }); expect(text.value).toContain("Reviewed Example Company"); expect(text.value).toContain("Develops applications with React.");
   await page.reload(); await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Develops applications with React.");
+  await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeEnabled();
+  expect(reviewCalls).toBe(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("resume-preview.png"), fullPage: true });
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);

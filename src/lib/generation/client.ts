@@ -34,6 +34,6 @@ export async function requestTailoredResume(profile: ProfessionalProfile, input:
 export async function requestResumeValidation(profile: ProfessionalProfile, resume: GeneratedResume, correct = false, signal?: AbortSignal, reviewPermit?: string): Promise<GeneratedResume> {
   const response = await post("/api/validate-resume", { profile, resume, correct, reviewPermit }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema }) }), signal, 155_000);
   const result = response.data.resume;
-  if (result.id !== resume.id || result.profileId !== profile.id || result.profileVersion !== profile.version || !result.validation.checkedAt || result.validation.status === "pending-semantic-review") throw new Error("The server returned an incomplete factual review. Try again.");
+  if (result.id !== resume.id || result.profileId !== profile.id || result.profileVersion !== profile.version || !result.validation.checkedAt || !["passed", "needs-review", "failed"].includes(result.validation.status)) throw new Error("The server returned an incomplete factual review. Try again.");
   return result;
 }

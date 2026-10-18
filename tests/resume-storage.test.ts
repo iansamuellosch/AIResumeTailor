@@ -29,7 +29,7 @@ it("surfaces quota errors and keeps the caller's result available for retry", as
   expect(await readGeneratedResume(db, resume.id)).toEqual(resume);
 });
 
-it("saves edits independently, invalidates previous review, restores the original and retains its evidence snapshot", async () => {
+it("saves owner edits independently without claiming AI review, restores the original and retains its evidence snapshot", async () => {
   const input = tailoringInput();
   const { assembleResume } = await import("@/lib/generation/assemble"); const { selectEvidence } = await import("@/lib/generation/evidence"); const { selection } = await import("./fixtures/tailoring");
   const { updateGeneratedResume, restoreGeneratedResume, readResumeRecord } = await import("@/lib/storage/resumes");
@@ -38,7 +38,7 @@ it("saves edits independently, invalidates previous review, restores the origina
   await saveProfile(db, input.profile); await saveGeneratedResume(db, resume, input.profile);
   const changed = { ...resume, summary: "Manually edited summary." };
   const updated = await updateGeneratedResume(db, changed, resume.updatedAt);
-  expect(updated.content.validation.status).toBe("pending-semantic-review");
+  expect(updated.content.validation).toEqual({ status: "manually-edited", issues: [] });
   expect(updated.originalContent).toEqual(resume);
   expect(updated.sourceProfile).toEqual(input.profile);
   expect(await readProfile(db, "verified")).toEqual(input.profile);
@@ -112,4 +112,17 @@ it("keeps the existing layout and original when a layout save fails", async () =
   vi.spyOn(db.generatedResumes, "put").mockRejectedValueOnce(new DOMException("Full", "QuotaExceededError"));
   await expect(updateResumeLayout(db, resume.id, "classic", resume.updatedAt)).rejects.toThrow("storage is full");
   expect(await readGeneratedResume(db, resume.id)).toEqual(resume);
+});
+
+it("recovers older manual edits without requiring AI review but keeps untouched pending drafts blocked", async () => {
+  const { readResumeRecord } = await import("@/lib/storage/resumes");
+  const { assertExportable } = await import("@/lib/export/document");
+  const original = savedResume(); await saveGeneratedResume(db, original);
+  expect(() => assertExportable(original)).toThrow();
+  const record = (await db.generatedResumes.get(original.id))!;
+  await db.generatedResumes.put({ ...record, content: { ...original, summary: "Previously saved owner edits." } });
+  const recovered = (await readResumeRecord(db, original.id))!;
+  expect(recovered.content.validation).toEqual({ status: "manually-edited", issues: [] });
+  expect(assertExportable(recovered.content).summary).toBe("Previously saved owner edits.");
+  expect(recovered.originalContent).toEqual(original);
 });

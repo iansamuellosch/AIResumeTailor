@@ -18,7 +18,7 @@ async function fixture(snapshot = true) {
   resume.validation = { status: "passed", checkedAt: new Date().toISOString(), issues: [] };
   await saveGeneratedResume(db, resume, snapshot ? input.profile : undefined); await saveProfile(db, input.profile);
   render(<SavedResume id={resume.id} />);
-  await screen.findByRole("heading", { name: "Factual checks completed" });
+  await screen.findByRole("button", { name: "Edit resume" });
   fireEvent.click(screen.getByRole("button", { name: "Edit resume" }));
   return { input, resume };
 }
@@ -33,39 +33,34 @@ it("keeps oversized pasted text editable and explains how to correct it before s
   expect(summary).toHaveFocus();
   expect((await readResumeRecord(db, resume.id))?.content.summary).toBe(resume.summary);
 });
-it("checks against the original approved snapshot even after the current profile changes", async () => {
+it("saves owner edits without an AI call or changing the approved profile", async () => {
   const { input, resume } = await fixture();
   const changedProfile = { ...input.profile, version: 2, summary: "A newer profile summary." };
   await saveProfile(db, changedProfile);
   fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Develops applications with React." } });
-  expect(screen.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: /Check facts|Recheck facts/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
-  vi.mocked(requestResumeValidation).mockImplementation(async (_source, current) => ({ ...current, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } }));
-  fireEvent.click(screen.getByRole("button", { name: "Check facts" }));
-  await waitFor(() => expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Factual review saved"));
-  expect(vi.mocked(requestResumeValidation).mock.calls[0][0]).toEqual(input.profile);
+  expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Download Word" })).toBeEnabled();
+  expect(requestResumeValidation).not.toHaveBeenCalled();
   expect(await readProfile(db, "verified")).toEqual(changedProfile);
   const record = await readResumeRecord(db, resume.id);
   expect(record?.content.summary).toBe("Develops applications with React.");
   expect(record?.originalContent.summary).toBe(input.profile.summary);
 });
-it("keeps saved edits in the preview when a fact check fails", async () => {
+it("lets saved owner edits download even when Gemini is unavailable", async () => {
   const { resume } = await fixture();
-  fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Text retained after review fails." } });
-  expect(screen.queryByRole("article", { name: "Saved resume" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-  await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
   vi.mocked(requestResumeValidation).mockRejectedValue(new Error("AI review unavailable."));
-  fireEvent.click(screen.getByRole("button", { name: "Check facts" }));
-  expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("AI review unavailable");
-  expect(screen.getByRole("article", { name: "Saved resume" })).toHaveTextContent("Text retained after review fails.");
+  fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Owner supplied information." } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(screen.getByRole("article", { name: "Saved resume" })).toBeVisible());
+  expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Download Word" })).toBeEnabled();
   const record = await readResumeRecord(db, resume.id);
-  expect(record?.content.summary).toBe("Text retained after review fails.");
-  expect(record?.content.validation.status).toBe("pending-semantic-review");
-  expect(record?.originalContent.summary).toBe(resume.summary);
-  fireEvent.click(screen.getByRole("button", { name: "Edit resume" }));
-  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Text retained after review fails.");
+  expect(record?.content.validation).toEqual({ status: "manually-edited", issues: [] });
+  expect(record?.originalContent).toEqual(resume);
+  expect(requestResumeValidation).not.toHaveBeenCalled();
 });
 it("blocks stale tab saves without discarding local text", async () => {
   const { resume } = await fixture();
@@ -76,11 +71,11 @@ it("blocks stale tab saves without discarding local text", async () => {
   expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Stale tab's edits.");
   expect((await readResumeRecord(db, resume.id))?.content.summary).toBe("Newer tab's summary.");
 });
-it("does not revalidate legacy resumes against a different source profile version", async () => {
-  const { input } = await fixture(false); await saveProfile(db, { ...input.profile, version: 2 });
-  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
-  fireEvent.click(screen.getByRole("button", { name: "Recheck facts" }));
-  expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("source profile for this resume is unavailable");
+it("allows editing a legacy resume without its source snapshot or a new AI check", async () => {
+  await fixture(false);
+  fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Updated by the owner." } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled());
   expect(requestResumeValidation).not.toHaveBeenCalled();
 });
 it("saves a layout while preserving unsaved text and its export guard without calling Gemini", async () => {
@@ -100,7 +95,7 @@ it("saves a layout while preserving unsaved text and its export guard without ca
   const saved = await readResumeRecord(db, resume.id);
   expect(saved?.content.summary).toBe("Unsaved text remains here.");
   expect(saved?.content.settings.template).toBe("classic");
-  expect(saved?.content.validation.status).toBe("pending-semantic-review");
+  expect(saved?.content.validation.status).toBe("manually-edited");
 });
 
 it("cancel confirms before discarding text, keeps the saved layout, and restores the preview", async () => {
@@ -152,7 +147,7 @@ it("retains the saved fact check when in-place text is restored to its saved val
   fireEvent.input(summary, { target: { textContent: "A temporary edit." } });
   fireEvent.input(summary, { target: { textContent: resume.summary } });
   expect(screen.getByRole("button", { name: "Done editing" })).toBeEnabled();
-  expect(screen.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  expect(screen.queryByRole("region", { name: "Factual validation" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   expect((await readResumeRecord(db, resume.id))?.content).toEqual(resume);
   expect(requestResumeValidation).not.toHaveBeenCalled();

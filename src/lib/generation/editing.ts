@@ -39,8 +39,8 @@ export function replaceResumeText(resume: GeneratedResume, path: string, text: s
   target[key] = text || (target[key] === undefined || /Date$|Url$/.test(key) ? undefined : "");
   return result;
 }
-export function pendingValidation(): GeneratedResume["validation"] {
-  return { status: "pending-semantic-review", issues: [] };
+export function manualEditValidation(): GeneratedResume["validation"] {
+  return { status: "manually-edited", issues: [] };
 }
 
 /** Use editor labels rather than schema paths when explaining invalid edits. */

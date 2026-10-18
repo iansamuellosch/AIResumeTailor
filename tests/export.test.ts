@@ -21,9 +21,15 @@ describe("text document exports", () => {
     expect(new TextEncoder().encode(exportFilename(resume, "docx")).byteLength).toBeLessThan(240);
   });
   it("blocks pending and failed reviews, while exposing warnings for review", () => {
-    const resume = exportFixture(); resume.validation = { status: "pending-semantic-review", issues: [] }; expect(() => assertExportable(resume)).toThrow("Check facts");
+    const resume = exportFixture(); resume.validation = { status: "pending-semantic-review", issues: [] }; expect(() => assertExportable(resume)).toThrow("Finish AI generation checks");
     resume.validation = { status: "failed", checkedAt: new Date().toISOString(), issues: [{ id: "issue", severity: "error", fieldPath: "summary", message: "Unsupported claim", evidenceIds: [] }] }; expect(() => assertExportable(resume)).toThrow();
     resume.validation.status = "needs-review"; resume.validation.issues[0].severity = "warning"; expect(assertExportable(resume).validation.status).toBe("needs-review");
+  });
+  it("permits saved manual edits without claiming they passed AI validation", () => {
+    const resume = exportFixture();
+    resume.validation = { status: "manually-edited", issues: [] };
+    expect(assertExportable(resume).validation).toEqual({ status: "manually-edited", issues: [] });
+    expect(() => assertExportable({ ...resume, validation: { ...resume.validation, checkedAt: new Date().toISOString() } })).toThrow();
   });
   it("includes every rendered section but excludes private metadata", () => {
     const resume = exportFixture(); resume.notes = "PRIVATE_NOTES"; resume.settings.additionalInstructions = "PRIVATE_INSTRUCTIONS";

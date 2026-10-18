@@ -2,7 +2,7 @@ import type { ProfessionalProfile } from "@/schemas/profile";
 import type { GeneratedResume } from "@/schemas/resume";
 export function EvidencePanel({ resume, profile }: { resume: GeneratedResume; profile?: ProfessionalProfile }) {
   return <details className="rounded-xl border bg-card p-5"><summary className="cursor-pointer font-semibold">Supporting evidence</summary>
-    {!profile ? <p className="mt-3 text-sm text-muted-foreground">This older resume has no saved evidence snapshot. Factual review can use the current approved profile only if its ID and version still match.</p> : <div className="mt-4 space-y-4">
+    {!profile ? <p className="mt-3 text-sm text-muted-foreground">This older resume has no saved profile snapshot to show its supporting evidence.</p> : <div className="mt-4 space-y-4">
       <p className="text-sm text-muted-foreground">Approved profile version {profile.version}, captured when this resume was generated. Check whether each fact supports the full wording of its bullet.</p>
       {(["experience", "projects"] as const).flatMap((section) => resume[section].map((entry) => {
         const source = profile[section].find((item) => item.id === entry.sourceId);

@@ -59,7 +59,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await page.getByRole("link", { name: "Open saved resume" }).click();
   await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Integrated REST APIs into React applications.");
-  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Factual validation" })).toHaveCount(0);
   await expect(page.getByRole("article", { name: "Saved resume" })).toHaveAttribute("data-layout", "classic");
   const previewBounds = await page.getByRole("article", { name: "Saved resume" }).boundingBox();
   expect(previewBounds!.y).toBeLessThan(page.viewportSize()!.height - 100);
@@ -67,7 +67,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   if (await layoutControl.isVisible()) await layoutControl.click();
   await page.getByText("Compact", { exact: true }).click();
   await expect(page.getByRole("status", { name: "Resume save status" })).toHaveText("Compact layout saved.");
-  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Factual validation" })).toHaveCount(0);
   expect(generationCalls).toBe(1); expect(reviewCalls).toBe(1);
   await page.reload();
   if (await layoutControl.isVisible()) {
@@ -90,19 +90,18 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await expect(page.getByRole("heading", { name: "Preview", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Edit resume", exact: true }).click();
   await page.getByLabel("Professional summary", { exact: true }).fill("Led an engineering team.");
-  await expect(page.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("status", { name: "Resume save status" })).toContainText("Changes saved locally");
   await page.reload();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Led an engineering team.");
-  await page.getByRole("button", { name: "Check facts" }).click();
-  await expect(page.getByRole("heading", { name: "Unsupported claims require correction" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Factual validation" })).toContainText("Leadership is not supported");
+  await expect(page.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  expect(reviewCalls).toBe(1);
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "More resume actions", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Restore generated version/ }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText(input.profile.summary);
-  await expect(page.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);
   await page.getByRole("link", { name: "Return to dashboard", exact: true }).click();
   const history = page.getByRole("region", { name: "Resume history" });
   await expect(history.getByRole("heading", { name: "Frontend Engineer" })).toBeVisible();
@@ -148,11 +147,11 @@ test("preserves unresolved drafts in history and blocks export", async ({ page }
   await page.getByRole("link", { name: "Open saved resume" }).click();
   await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Unsupported claims require correction" })).toBeVisible();
+  await expect(page.getByText("AI generation found unsupported claims.", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Download PDF" })).toBeDisabled();
 });
 
-test("recovers a saved pending draft after reload and retries review without regeneration", async ({ page }) => {
+test("retries incomplete generation checks without regenerating, then recovers after reload", async ({ page }) => {
   const input = await seedApprovedProfile(page);
   const resume = assembleResume(input, selectEvidence(input.profile, input.jobAnalysis, input.settings), selection());
   let writes = 0; let reviews = 0;
@@ -167,11 +166,12 @@ test("recovers a saved pending draft after reload and retries review without reg
   await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer building accessible applications.");
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Review is temporarily unavailable");
+  await page.getByRole("button", { name: "Retry factual review", exact: true }).click();
+  await expect(page.getByText("Factual review: passed", { exact: false })).toBeVisible();
   await page.reload();
   await page.getByRole("link", { name: "Open resume", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Download PDF" })).toBeDisabled();
-  await page.getByRole("button", { name: "Check facts" }).click();
-  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);
   expect(writes).toBe(1); expect(reviews).toBe(2);
 });
 
@@ -197,7 +197,7 @@ test("saves advisory quality warnings, logs their reasons and allows export afte
   await page.reload();
   await page.getByText("Quality suggestions (1)", { exact: true }).click();
   await expect(page.getByRole("region", { name: "Resume quality warnings" })).toContainText(warning);
-  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Factual validation" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Download Word", exact: true })).toBeEnabled();
   expect(writes).toBe(1); expect(reviews).toBe(1);
@@ -255,7 +255,7 @@ test("edits resume text in place with stable caret, plain paste, multiline bulle
   await page.screenshot({ path: testInfo.outputPath("in-place-editor.png"), fullPage: true });
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("article", { name: "Saved resume", exact: true })).toContainText("Refined React interfaces.");
-  await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeEnabled();
   expect(reviewCalls).toBe(1);
   const record = await page.evaluate(async (id) => new Promise<{ content: typeof resume; originalContent: typeof resume }>((resolve, reject) => {
     const open = indexedDB.open("ai-resume-tailor"); open.onerror = () => reject(open.error);

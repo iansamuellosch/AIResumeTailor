@@ -7,17 +7,15 @@ import { resumeTemplates } from "@/lib/resume/templates";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getDatabase, readProfile, type StoredResume } from "@/lib/storage/database";
+import { getDatabase, type StoredResume } from "@/lib/storage/database";
 import { readResumeRecord, updateGeneratedResume, restoreGeneratedResume, updateResumeLayout } from "@/lib/storage/resumes";
 import { generatedResumeSchema, type GeneratedResume } from "@/schemas/resume";
 import { resumeEditError, resumeTextHasChanges } from "@/lib/generation/editing";
 import { resumeBlocks } from "@/lib/export/document";
-import { requestResumeValidation } from "@/lib/generation/client";
 import { ExportControls } from "./export-controls";
 import { ResumeDocument } from "./resume-document";
 import { ResumeEditor } from "./resume-editor";
 import { EvidencePanel } from "./evidence-panel";
-import { ValidationPanel } from "./validation-panel";
 import { QualityWarnings } from "./quality-warnings";
 import { TailoringOverview } from "./tailoring-overview";
 
@@ -49,11 +47,10 @@ export function SavedResume({ id }: { id: string }) {
     workspaceTitle.current?.focus({ preventScroll: true });
     workspace.current?.scrollIntoView?.({ block: "start" });
   }, [editing]);
-  const controller = useRef<AbortController | null>(null);
   useEffect(() => {
     let active = true;
     void readResumeRecord(getDatabase(), id).then((value) => { if (active) { setRecord(value); setResume(value?.content); setLoaded(true); } }).catch((cause: unknown) => { if (active) { setError(cause instanceof Error ? cause.message : "Could not read this saved resume."); setLoaded(true); } });
-    return () => { active = false; controller.current?.abort(); };
+    return () => { active = false; };
   }, [id]);
   useEffect(() => {
     if (!dirty) return;
@@ -66,25 +63,18 @@ export function SavedResume({ id }: { id: string }) {
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", navigate, true); };
   }, [dirty]);
   function accept(value: StoredResume) { setRecord(value); setResume(value.content); setDirty(false); setEditing(false); }
-  async function save(review: boolean) {
+  async function save() {
     if (!resume || !record || lock.current) return;
-    if (!review && !dirty) { setEditing(false); return; }
+    if (!dirty) { setEditing(false); return; }
     const parsed = generatedResumeSchema.safeParse(resume);
     if (!parsed.success) { setError(resumeEditError(resume, parsed.error.issues)); const path = parsed.error.issues[0]?.path.join("."); if (path) document.getElementById(`edit-${path}`)?.focus(); return; }
-    if (!review && !resumeTextHasChanges(parsed.data, record.content)) { accept(record); setMessage("No text changes to save."); return; }
-    lock.current = true; setBusy(true); setActivity(review ? "Checking facts…" : "Saving changes…"); setError(""); setMessage("");
-    controller.current = new AbortController();
+    if (!resumeTextHasChanges(parsed.data, record.content)) { accept(record); setMessage("No text changes to save."); return; }
+    lock.current = true; setBusy(true); setActivity("Saving changes…"); setError(""); setMessage("");
     try {
-      let content = parsed.data;
+      const content = parsed.data;
       resumeBlocks(content);
-      if (review) {
-        const source = record.sourceProfile ?? await readProfile(getDatabase(), "verified");
-        if (!source || source.id !== content.profileId || source.version !== content.profileVersion) throw new Error("The approved source profile for this resume is unavailable. Edits can still be saved as unreviewed. Generate a new resume from your current profile to validate against it.");
-        content = await requestResumeValidation(source, content, false, controller.current.signal, record.reviewPermit);
-      }
-      if (controller.current.signal.aborted) return;
-      accept(await updateGeneratedResume(getDatabase(), content, record.updatedAt, review ? "review" : "edit"));
-      setMessage(review ? "Factual review saved. Review the result before downloading." : "Changes saved locally. Check facts before downloading.");
+      accept(await updateGeneratedResume(getDatabase(), content, record.updatedAt));
+      setMessage("Changes saved locally.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save changes. Your edits are still in this tab."); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -138,7 +128,7 @@ export function SavedResume({ id }: { id: string }) {
             <div className="flex flex-wrap items-center gap-2">
               {editing ? <>
                 <Button variant="outline" disabled={busy} onClick={cancelEditing}>Cancel</Button>
-                <Button disabled={busy} onClick={() => void save(false)}>{activity === "Saving changes…" && busy ? "Saving…" : dirty ? "Save changes" : "Done editing"}</Button>
+                <Button disabled={busy} onClick={() => void save()}>{activity === "Saving changes…" && busy ? "Saving…" : dirty ? "Save changes" : "Done editing"}</Button>
               </> : <Button disabled={busy} onClick={() => setEditing(true)}>Edit resume</Button>}
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild><Button variant="outline" size="icon" disabled={busy} aria-label="More resume actions"><Ellipsis aria-hidden="true" /></Button></DropdownMenu.Trigger>
@@ -154,11 +144,7 @@ export function SavedResume({ id }: { id: string }) {
         {error && <p role="alert" aria-label="Resume error" className="rounded-lg border border-destructive p-4 text-sm text-destructive">{error}</p>}
         {editing ? <ResumeEditor resume={resume} disabled={busy} onChange={(value) => { const changed = !record || resumeTextHasChanges(value, record.content); setResume(changed ? value : { ...value, validation: record!.content.validation }); setDirty(changed); setMessage(""); setError(""); }} /> : <ResumeDocument resume={resume} />}
       </section>
-      <aside aria-label="Review and download" className="space-y-4 lg:col-start-2 lg:row-start-2">
-        <ValidationPanel resume={resume} compact>
-          <Button variant="outline" className="w-full" disabled={busy || editing} onClick={() => void save(true)}>{busy && activity === "Checking facts…" ? "Checking facts…" : resume.validation.status === "passed" ? "Recheck facts" : "Check facts"}</Button>
-          <p className="text-xs leading-5 text-muted-foreground">{editing ? "Save your edits to run a fact check." : "Uses AI to compare this resume with your approved profile. It doesn’t rewrite your resume."}</p>
-        </ValidationPanel>
+      <aside aria-label="Download resume" className="space-y-4 lg:col-start-2 lg:row-start-2">
         <ExportControls resume={resume} dirty={dirty} editing={editing} disabled={busy} compact />
       </aside>
     </div>

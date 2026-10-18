@@ -39,7 +39,7 @@ describe("in-place resume editing", () => {
     expect(result.experience[0].jobTitle).toBe(original.experience[0].jobTitle);
     expect(result.experience[0].bullets[0]).toEqual({ ...original.experience[0].bullets[0], text: "Revised contribution." });
     expect(original.experience[0].employer).not.toBe("Edited company");
-    expect(result.validation.status).toBe("pending-semantic-review");
+    expect(result.validation.status).toBe("manually-edited");
   });
   it("pastes only plain text and supports undo/redo for pasted content", () => {
     const changed = vi.fn(); render(<TextHarness onChange={changed} />);
