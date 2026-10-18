@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ResumeUpload } from "@/components/upload/resume-upload";
 import { getDatabase, readProfile } from "@/lib/storage/database";
@@ -40,9 +39,6 @@ export function ProfileWorkspace() {
     </div>}
     {showUpload ? <>
       <ResumeUpload onComplete={() => void load()} onCancel={hasProfile ? () => void load() : undefined} />
-      <aside id="upload-disclosure" aria-label="Data disclosure" className="text-xs leading-6 text-muted-foreground">
-        Saved in this browser. Resume text is sent to Google Gemini for parsing. <Link href="/settings#ai-processing" className="underline underline-offset-4">Privacy details</Link>
-      </aside>
     </> : <ProfileEditor onReplace={() => setReplacing(true)} />}
   </div>;
 }

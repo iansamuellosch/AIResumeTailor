@@ -94,13 +94,13 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
         className={`rounded-xl border border-dashed px-6 py-8 text-center ${dragging ? "border-primary bg-secondary" : "bg-card"}`}
         aria-busy={!!busy}
       >
-        <Button id="upload-title" disabled={disabled} aria-describedby="upload-formats upload-disclosure" onClick={() => input.current?.click()}>{verified ? "Upload replacement" : "Upload resume"}</Button>
+        <Button id="upload-title" disabled={disabled} aria-describedby="upload-formats footer-tagline" onClick={() => input.current?.click()}>{verified ? "Upload replacement" : "Upload resume"}</Button>
         <p className="mt-3 text-sm text-muted-foreground">or drag and drop here</p>
         <p id="upload-formats" className="mt-2 text-xs text-muted-foreground">PDF or DOCX · Up to 5 MB</p>
         <label htmlFor="resume-file" className="sr-only">Choose a resume file</label>
         <input
           ref={input} id="resume-file" type="file" accept=".pdf,.docx" disabled={disabled}
-          aria-describedby="upload-formats upload-disclosure"
+          aria-describedby="upload-formats footer-tagline"
           onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void processUpload(file); }}
           className="hidden"
         />

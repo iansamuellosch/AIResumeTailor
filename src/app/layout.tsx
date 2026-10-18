@@ -10,7 +10,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <Navigation />
     <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8 sm:py-16"><StorageStatus />{children}</main>
     <footer className="mx-auto w-full max-w-6xl border-t px-5 py-6 text-muted-foreground sm:px-8">
-      <p className="text-center text-sm">Saved in the browser. Powered by Google Gemini.</p>
+      <p id="footer-tagline" className="text-center text-sm">Saved in the browser. Powered by Google Gemini.</p>
       <div className="mt-4 flex items-center justify-between gap-4 text-xs"><p>v0.6.0</p><Link href="/settings#ai-processing" className="rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">Privacy details</Link></div>
     </footer>
   </body></html>;
