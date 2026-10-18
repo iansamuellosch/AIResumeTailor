@@ -22,7 +22,7 @@ async function seedApprovedProfile(page: Page) {
 
 test("tailors an approved profile, saves locally, and recovers a readable result after reload", async ({ page }) => {
   const input = await seedApprovedProfile(page);
-  let analysisCalls = 0; let generationCalls = 0;
+  let analysisCalls = 0; let generationCalls = 0; let reviewCalls = 0;
   await page.route("**/api/analyze-job", async (route) => {
     analysisCalls++;
     expect(route.request().postDataJSON()).not.toHaveProperty("profile");
@@ -33,12 +33,14 @@ test("tailors an approved profile, saves locally, and recovers a readable result
     generationCalls++;
     const body = route.request().postDataJSON();
     expect(body.profile.status).toBe("verified");
+    expect(body.settings.template).toBe("classic");
     expect(body.settings.emphasis).toBe("balanced");
     expect(body.settings.additionalInstructions).toBe("");
     expect(body.settings.targetLength).toBe("one-page");
-    await route.fulfill({ json: { success: true, data: { resume } } });
+    await route.fulfill({ json: { success: true, data: { resume: { ...resume, settings: body.settings } } } });
   });
   await page.route("**/api/validate-resume", async (route) => {
+    reviewCalls++;
     const body = route.request().postDataJSON();
     await route.fulfill({ json: { success: true, data: { resume: { ...body.resume, validation: body.resume.summary.includes("Led an engineering team") ? { status: "failed", checkedAt: new Date().toISOString(), issues: [{ id: "issue", severity: "error", fieldPath: "summary", message: "Leadership is not supported by the approved evidence.", evidenceIds: [] }] } : { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } });
   });
@@ -46,6 +48,9 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer to integrate REST APIs and build accessible applications.");
   await expect(page.getByLabel("Emphasis", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Additional instructions", { exact: true })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Modern", exact: true }).focus();
+  await page.getByRole("radio", { name: "Modern", exact: true }).press("ArrowRight");
+  await expect(page.getByRole("radio", { name: "Classic", exact: true })).toBeChecked();
   await page.getByLabel("Target length", { exact: true }).selectOption("one-page");
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
   await expect(page.getByRole("heading", { name: "Resume saved locally" })).toBeVisible();
@@ -55,7 +60,14 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Integrated REST APIs into React applications.");
   await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Saved resume" })).toHaveAttribute("data-layout", "classic");
+  await page.getByText("Compact", { exact: true }).click();
+  await expect(page.getByRole("status", { name: "Resume save status" })).toHaveText("Compact layout saved.");
+  await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
+  expect(generationCalls).toBe(1); expect(reviewCalls).toBe(1);
   await page.reload();
+  await expect(page.getByRole("radio", { name: "Compact", exact: true })).toBeChecked();
+  await expect(page.getByRole("article", { name: "Saved resume" })).toHaveAttribute("data-layout", "compact");
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Example Co");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Edit resume", exact: true }).click();

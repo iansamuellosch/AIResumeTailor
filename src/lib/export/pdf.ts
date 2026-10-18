@@ -1,10 +1,11 @@
 import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
+import { resumeTemplates } from "@/lib/resume/templates";
 import fontkit from "@pdf-lib/fontkit";
 import { assertExportable, resumeBlocks, blockStyle } from "./document";
 
 export interface PdfFonts { regular: Uint8Array; bold: Uint8Array }
 export interface PdfLayoutLine { page: number; text: string; x: number; y: number; width: number; size: number }
-const PAGE_WIDTH = 612; const PAGE_HEIGHT = 792; const MARGIN = 48; const BOTTOM = 48;
+const PAGE_WIDTH = 612; const PAGE_HEIGHT = 792;
 /** Break oversized words/URLs without truncation; preserve explicit paragraph breaks. */
 export function wrapText(text: string, width: number, measure: (value: string) => number): string[] {
   const lines: string[] = [];
@@ -28,16 +29,18 @@ export function wrapText(text: string, width: number, measure: (value: string) =
 }
 export async function createResumePdf(input: unknown, fonts: PdfFonts): Promise<{ bytes: Uint8Array; pageCount: number; lines: PdfLayoutLine[] }> {
   const resume = assertExportable(input); const blocks = resumeBlocks(resume);
+  const template = resumeTemplates[resume.settings.template];
+  const MARGIN = template.margin; const BOTTOM = template.margin;
   const doc = await PDFDocument.create(); doc.registerFontkit(fontkit);
   const regular = await doc.embedFont(fonts.regular, { subset: true }); const bold = await doc.embedFont(fonts.bold, { subset: true });
   const supported = new Set(regular.getCharacterSet()); const supportedBold = new Set(bold.getCharacterSet());
   for (const block of blocks) for (const char of block.text.replace(/\n/g, "")) {
-    if (!(blockStyle(block.kind).bold ? supportedBold : supported).has(char.codePointAt(0)!)) throw new Error(`The PDF font cannot display “${char}” (U+${char.codePointAt(0)!.toString(16).toUpperCase()}). Use DOCX for this text or replace that character.`);
+    if (!(blockStyle(block.kind, resume.settings.template).bold ? supportedBold : supported).has(char.codePointAt(0)!)) throw new Error(`The PDF font cannot display “${char}” (U+${char.codePointAt(0)!.toString(16).toUpperCase()}). Use DOCX for this text or replace that character.`);
   }
   const layout = blocks.map((block) => {
-    const style = blockStyle(block.kind); const font = style.bold ? bold : regular;
+    const style = blockStyle(block.kind, resume.settings.template); const font = style.bold ? bold : regular;
     const indent = block.kind === "bullet" ? 12 : 0;
-    return { block, style, font, indent, leading: style.size * 1.4, wrapped: wrapText(block.text, PAGE_WIDTH - 2 * MARGIN - indent, (value) => font.widthOfTextAtSize(value, style.size)) };
+    return { block, style, font, indent, leading: style.size * template.lineHeight, wrapped: wrapText(block.text, PAGE_WIDTH - 2 * MARGIN - indent, (value) => font.widthOfTextAtSize(value, style.size)) };
   });
   let page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]); let top = PAGE_HEIGHT - MARGIN;
   const lines: PdfLayoutLine[] = [];
@@ -75,11 +78,13 @@ export async function createResumePdf(input: unknown, fonts: PdfFonts): Promise<
       for (const line of item.wrapped.slice(offset, offset + count)) {
         const y = top - item.style.size;
         if (item.block.kind === "bullet" && offset === 0) draw("-", MARGIN, y, regular, item.style.size);
-        draw(line, MARGIN + item.indent, y, item.font, item.style.size);
+        const x = item.style.center ? (PAGE_WIDTH - item.font.widthOfTextAtSize(line, item.style.size)) / 2 : MARGIN + item.indent;
+        draw(line, x, y, item.font, item.style.size);
         top -= item.leading; offset++;
       }
       if (offset < item.wrapped.length) newPage();
     }
+    if (item.style.rule) page.drawLine({ start: { x: MARGIN, y: top + 1 }, end: { x: PAGE_WIDTH - MARGIN, y: top + 1 }, thickness: 0.5, color: rgb(0.72, 0.76, 0.8) });
     top -= item.style.after;
   }
   const pageCount = doc.getPageCount();

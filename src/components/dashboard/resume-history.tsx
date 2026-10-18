@@ -1,4 +1,5 @@
 "use client";
+import { resumeTemplates } from "@/lib/resume/templates";
 import Link from "next/link";
 import { liveQuery } from "dexie";
 import { useEffect, useState } from "react";
@@ -45,7 +46,7 @@ export function ResumeHistory() {
     {loaded && !resumes.length && <p className="text-sm text-muted-foreground">No saved resumes yet.</p>}
     {resumes.map((resume) => <article key={resume.id} className="space-y-3 rounded-xl border bg-card p-5">
       <h3 className="font-semibold">{resume.jobAnalysis.jobTitle || "Tailored resume"}{resume.jobAnalysis.company ? ` · ${resume.jobAnalysis.company}` : ""}</h3>
-      <p className="text-xs leading-5 text-muted-foreground">Created {new Date(resume.createdAt).toLocaleString()} · Modified {new Date(resume.updatedAt).toLocaleString()} · Modern Professional · {resume.validation.status}</p>
+      <p className="text-xs leading-5 text-muted-foreground">Created {new Date(resume.createdAt).toLocaleString()} · Modified {new Date(resume.updatedAt).toLocaleString()} · {resumeTemplates[resume.settings.template].name} · {resume.validation.status}</p>
       <div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href={`/resume/${resume.id}`}>Open resume</Link></Button><Button variant="outline" onClick={() => void download(resume)}>Download JSON</Button><Button disabled={busy} variant="ghost" onClick={() => void remove(resume)}>Delete resume</Button></div>
       <details><summary className="cursor-pointer text-sm font-medium">Document downloads</summary><div className="mt-3"><ExportControls resume={resume} disabled={busy} /></div></details>
     </article>)}

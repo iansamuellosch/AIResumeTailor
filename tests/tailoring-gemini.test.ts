@@ -31,6 +31,7 @@ describe("Gemini tailoring", () => {
     expect(call.config.systemInstruction).toContain("Never invent");
     expect(call.config.systemInstruction).toContain("Shortening is useful when it removes repetition or low-value detail. It is not the primary objective.");
     const payload = JSON.parse(call.contents[0].parts[0].text);
+    expect(payload.settings).not.toHaveProperty("template");
     expect(payload.contentPlan).not.toHaveProperty("targetBullets");
     expect(payload.contentPlan).not.toHaveProperty("minimumBullets");
     expect(call.config.responseJsonSchema.properties).not.toHaveProperty("changeExplanation");

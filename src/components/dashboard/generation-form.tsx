@@ -1,8 +1,9 @@
 "use client";
+import { LayoutPicker } from "@/components/resume/layout-picker";
 import { QualityWarnings } from "@/components/resume/quality-warnings";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +17,7 @@ const control = "mt-1.5 w-full min-w-0 rounded-md border bg-background px-3 py-2
 export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
   const factCount = [...profile.experience, ...profile.projects].reduce((sum, entry) => sum + entry.responsibilities.length + entry.achievements.length + entry.technologies.length + ("quantifiableResults" in entry ? entry.quantifiableResults.length : Number(Boolean(entry.description))), 0);
   const form = useForm<DashboardInput>({ resolver: zodResolver(dashboardInputSchema), defaultValues: { jobDescription: "", company: "", jobTitle: "", jobUrl: "", notes: "", settings: defaultResumeSettings } });
+  const template = useWatch({ control: form.control, name: "settings.template" });
   const [stage, setStage] = useState<GenerationStage>();
   const [error, setError] = useState("");
   const [pending, setPending] = useState<GeneratedResume>();
@@ -104,8 +106,8 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
       </CardContent></Card>
       <Card><CardContent className="space-y-5">
         <h2 className="text-lg font-semibold">Resume settings</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="text-sm font-medium"><label htmlFor="settings.template">Resume template</label><select id="settings.template" {...form.register("settings.template")} className={control}><option value="modern-professional">Modern Professional</option></select></div>
+        <LayoutPicker value={template} onChange={(template) => form.setValue("settings.template", template, { shouldDirty: true })} disabled={busy} />
+        <div className="max-w-sm">
           <div className="text-sm font-medium"><label htmlFor="settings.targetLength">Target length</label><select id="settings.targetLength" {...form.register("settings.targetLength")} className={control}><option value="automatic">Automatic</option><option value="one-page">One page</option><option value="two-pages">Two pages</option></select></div>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">Target length guides content selection. Pagination will be finalized during export.</p>

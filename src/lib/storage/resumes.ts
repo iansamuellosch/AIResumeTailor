@@ -1,3 +1,4 @@
+import type { ResumeTemplate } from "@/schemas/resume-template";
 import { generatedResumeSchema, type GeneratedResume } from "@/schemas/resume";
 import { professionalProfileSchema, type ProfessionalProfile } from "@/schemas/profile";
 import { pendingValidation } from "@/lib/generation/editing";
@@ -65,4 +66,20 @@ export async function listGeneratedResumes(db: ResumeDatabase): Promise<{ resume
     for (const record of records) { try { resumes.push(parseRecord(record).content); } catch { unreadable++; } }
     return { resumes, unreadable };
   } catch (cause) { throw new LocalStorageError(storageErrorMessage(cause), { cause }); }
+}
+
+/** Change only presentation, preserving factual review and the immutable original. */
+export async function updateResumeLayout(db: ResumeDatabase, id: string, template: ResumeTemplate, expectedUpdatedAt: string): Promise<StoredResume> {
+  try {
+    return await db.transaction("rw", db.generatedResumes, async () => {
+      const existing = await db.generatedResumes.get(id);
+      if (!existing || existing.updatedAt !== expectedUpdatedAt) throw conflict();
+      const record = parseRecord(existing);
+      const updatedAt = new Date(Math.max(Date.now(), Date.parse(expectedUpdatedAt) + 1)).toISOString();
+      const content = generatedResumeSchema.parse({ ...record.content, updatedAt, settings: { ...record.content.settings, template } });
+      const updated = { ...record, updatedAt, content };
+      await db.generatedResumes.put(updated);
+      return updated;
+    });
+  } catch (cause) { if (cause instanceof LocalStorageError) throw cause; throw new LocalStorageError(storageErrorMessage(cause), { cause }); }
 }

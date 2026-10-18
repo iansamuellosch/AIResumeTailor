@@ -90,3 +90,26 @@ it("retains a pending draft, source snapshot and allowance through reload and fa
   expect(reviewed.originalContent.validation.status).toBe("pending-semantic-review");
   expect(await readGeneratedResume(db, resume.id)).not.toHaveProperty("reviewPermit");
 });
+
+it("switches layouts without changing content, review, source, or the original; rejects stale updates", async () => {
+  const { updateResumeLayout, readResumeRecord, deleteGeneratedResume } = await import("@/lib/storage/resumes");
+  const resume = savedResume(); resume.validation = { status: "passed", checkedAt: new Date().toISOString(), issues: [] };
+  await saveGeneratedResume(db, resume);
+  const updated = await updateResumeLayout(db, resume.id, "classic", resume.updatedAt);
+  expect(updated.content).toEqual({ ...resume, settings: { ...resume.settings, template: "classic" }, updatedAt: updated.updatedAt });
+  expect(updated.originalContent).toEqual(resume);
+  await expect(updateResumeLayout(db, resume.id, "compact", resume.updatedAt)).rejects.toThrow("another tab");
+  const compact = await updateResumeLayout(db, resume.id, "compact", updated.updatedAt);
+  expect((await readResumeRecord(db, resume.id))?.content.settings.template).toBe("compact");
+  expect(compact.content.validation).toEqual(resume.validation);
+  await deleteGeneratedResume(db, resume.id, compact.updatedAt);
+  await expect(updateResumeLayout(db, resume.id, "classic", compact.updatedAt)).rejects.toThrow("another tab");
+  expect(await db.generatedResumes.count()).toBe(0);
+});
+it("keeps the existing layout and original when a layout save fails", async () => {
+  const { updateResumeLayout } = await import("@/lib/storage/resumes");
+  const resume = savedResume(); await saveGeneratedResume(db, resume);
+  vi.spyOn(db.generatedResumes, "put").mockRejectedValueOnce(new DOMException("Full", "QuotaExceededError"));
+  await expect(updateResumeLayout(db, resume.id, "classic", resume.updatedAt)).rejects.toThrow("storage is full");
+  expect(await readGeneratedResume(db, resume.id)).toEqual(resume);
+});

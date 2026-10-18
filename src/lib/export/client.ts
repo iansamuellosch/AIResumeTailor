@@ -1,3 +1,4 @@
+import { resumeTemplates } from "@/lib/resume/templates";
 import { z } from "zod";
 import { assertExportable, exportFilename, type ExportFormat } from "./document";
 import { downloadBlob } from "./download";
@@ -7,7 +8,7 @@ export async function downloadResume(input: unknown, format: ExportFormat): Prom
   let fonts: { regular: Uint8Array; bold: Uint8Array } | undefined;
   if (format === "pdf") {
     try {
-      const responses = await Promise.all(["Regular", "Bold"].map((weight) => fetch(`/fonts/NotoSans-${weight}.ttf`, { signal: AbortSignal.timeout(15000) })));
+      const responses = await Promise.all(["Regular", "Bold"].map((weight) => fetch(`/fonts/${resumeTemplates[resume.settings.template].fontAsset}-${weight}.ttf`, { signal: AbortSignal.timeout(15000) })));
       if (responses.some((response) => !response.ok)) throw new Error("Font request failed");
       const [regular, bold] = await Promise.all(responses.map((response) => response.arrayBuffer())); fonts = { regular: new Uint8Array(regular), bold: new Uint8Array(bold) };
     } catch { throw new Error("Could not load PDF fonts. Check your connection and retry. Your resume is unchanged."); }

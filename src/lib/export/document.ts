@@ -1,6 +1,8 @@
 import { generatedResumeSchema, type GeneratedResume } from "@/schemas/resume";
+import type { ResumeBlockKind } from "@/lib/resume/templates";
+export { blockStyle } from "@/lib/resume/templates";
 export type ExportFormat = "pdf" | "docx";
-export interface ResumeBlock { kind: "name" | "contact" | "headline" | "section" | "entry" | "meta" | "text" | "bullet"; text: string; keepNext?: boolean }
+export interface ResumeBlock { kind: ResumeBlockKind; text: string; keepNext?: boolean }
 export function assertExportable(input: unknown): GeneratedResume {
   const resume = generatedResumeSchema.parse(input);
   if (resume.validation.status === "pending-semantic-review" || resume.validation.status === "failed" || resume.validation.issues.some((issue) => issue.severity === "error")) throw new Error("Check facts and resolve validation errors before exporting this resume.");
@@ -72,13 +74,3 @@ export function resumeBlocks(resume: GeneratedResume): ResumeBlock[] {
   if (blocks.reduce((total, block) => total + block.text.length, 0) > 200_000) throw new Error("This resume is too long to export safely. Shorten its content and try again.");
   return blocks;
 }
-export const blockStyle = (kind: ResumeBlock["kind"]) => ({
-  name: { size: 21, bold: true, before: 0, after: 5 },
-  contact: { size: 9.5, bold: false, before: 0, after: 4 },
-  headline: { size: 11, bold: true, before: 5, after: 4 },
-  section: { size: 11.5, bold: true, before: 13, after: 6 },
-  entry: { size: 10.5, bold: true, before: 6, after: 3 },
-  meta: { size: 9.5, bold: false, before: 0, after: 4 },
-  text: { size: 10.5, bold: false, before: 0, after: 5 },
-  bullet: { size: 10.5, bold: false, before: 0, after: 3 },
-})[kind];

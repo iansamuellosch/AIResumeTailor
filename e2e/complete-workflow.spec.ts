@@ -7,7 +7,8 @@ import { selectEvidence } from "../src/lib/generation/evidence";
 import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 
-test("upload, approve, tailor, edit, validate, export both formats, and recover locally", async ({ page }, testInfo) => {
+for (const layout of ["Modern", "Classic", "Compact"]) {
+test(`${layout}: upload, approve, tailor, edit, validate, export both formats, and recover locally`, async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const input = tailoringInput(); const draft = { ...input.profile, status: "draft", verifiedAt: undefined };
   await page.route("**/api/parse-resume", (route) => route.fulfill({ json: { success: true, data: { profile: draft } } }));
@@ -26,6 +27,8 @@ test("upload, approve, tailor, edit, validate, export both formats, and recover 
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer to integrate REST APIs and build accessible applications.");
+  await page.getByRole("radio", { name: layout, exact: true }).press("Space");
+  await expect(page.getByRole("radio", { name: layout, exact: true })).toBeChecked();
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
   await page.getByRole("link", { name: "Open saved resume", exact: true }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Reviewed Example Company");
@@ -45,6 +48,8 @@ test("upload, approve, tailor, edit, validate, export both formats, and recover 
   await page.screenshot({ path: testInfo.outputPath("resume-preview.png"), fullPage: true });
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
 });
+
+}
 
 test("profile backups import for review and destructive actions require confirmation", async ({ page }, testInfo) => {
   const profile = tailoringInput().profile;

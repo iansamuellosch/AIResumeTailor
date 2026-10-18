@@ -20,7 +20,9 @@ export async function generateResumeWithGemini(input: TailorResumeInput, signal?
   const matchingContext = { jobTitle: input.jobTitle || "", requiredSkills: [], preferredSkills: [], keywords: [], qualifications: [], responsibilities: [input.jobDescription] };
   const evidence = selectEvidence(input.profile, matchingContext, input.settings);
   // Contact details, links, private notes on unrelated facts, and lifecycle metadata are excluded.
-  const data = { jobDescription: input.jobDescription, company: input.company, jobTitle: input.jobTitle, evidence, contentPlan: contentPlan(evidence, input.settings), settings: input.settings, notes: input.notes };
+  // Layout is rendered locally and must not influence the generated wording.
+  const writingSettings = { targetLength: input.settings.targetLength, emphasis: input.settings.emphasis, additionalInstructions: input.settings.additionalInstructions };
+  const data = { jobDescription: input.jobDescription, company: input.company, jobTitle: input.jobTitle, evidence, contentPlan: contentPlan(evidence, input.settings), settings: writingSettings, notes: input.notes };
   const instructions = `${JOB_ANALYSIS_INSTRUCTIONS}\nAnalyze the supplied raw job description first, then use that analysis to write the tailored resume. Return jobAnalysis and selection in the specified schema in ONE response. Text-matching scores are relevance hints, not verified job requirements.\n${RESUME_GENERATION_INSTRUCTIONS}`;
   let revision: Record<string, unknown> = {};
   // Only invalid structured output gets one repair. Editorial quality is advisory.

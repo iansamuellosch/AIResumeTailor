@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { resumeTemplateSchema } from "./resume-template";
 import { professionalProfileSchema, personalInfoSchema, educationSchema, certificationSchema, skillSchema } from "./profile";
 import { analyzeJobRequestSchema, jobAnalysisSchema } from "./job";
 const id = z.string().trim().min(1).max(128);
 const text = z.string().trim().max(10000);
 export const resumeSettingsSchema = z.object({
-  template: z.literal("modern-professional"),
+  template: resumeTemplateSchema,
   targetLength: z.enum(["one-page", "two-pages", "automatic"]),
   emphasis: z.enum(["balanced", "technical", "experience", "projects"]),
   additionalInstructions: z.string().trim().max(2000, "Keep your instructions to 2,000 characters or fewer."),

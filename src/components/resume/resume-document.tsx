@@ -1,10 +1,12 @@
+import { resumeTemplates } from "@/lib/resume/templates";
 import type { GeneratedResume } from "@/schemas/resume";
 import { resumeBlocks, blockStyle } from "@/lib/export/document";
 export function ResumeDocument({ resume }: { resume: GeneratedResume }) {
-  return <article aria-label="Saved resume" className="resume-document min-w-0 rounded-xl border bg-white p-6 text-neutral-900 sm:p-12">
+  const layout = resumeTemplates[resume.settings.template];
+  return <article data-layout={resume.settings.template} style={{ fontFamily: layout.cssFont, padding: `clamp(16px, 5vw, ${layout.margin * 4 / 3}px)` }} aria-label="Saved resume" className="resume-document min-w-0 rounded-xl border bg-white mx-auto max-w-[816px] text-neutral-900">
     {resumeBlocks(resume).map((block, index) => {
-      const style = blockStyle(block.kind);
-      const props = { style: { fontSize: `${style.size * 4 / 3}px`, fontWeight: style.bold ? 700 : 400, marginTop: style.before * 4 / 3, marginBottom: style.after * 4 / 3, lineHeight: 1.4, whiteSpace: "pre-wrap" as const, overflowWrap: "anywhere" as const } };
+      const style = blockStyle(block.kind, resume.settings.template);
+      const props = { style: { fontSize: `${style.size * 4 / 3}px`, fontWeight: style.bold ? 700 : 400, marginTop: style.before * 4 / 3, marginBottom: style.after * 4 / 3, lineHeight: layout.lineHeight, textAlign: style.center ? "center" as const : "left" as const, borderBottom: style.rule ? "0.5pt solid #b8c2cc" : undefined, paddingBottom: style.rule ? "3pt" : undefined, whiteSpace: "pre-wrap" as const, overflowWrap: "anywhere" as const } };
       if (block.kind === "name") return <h2 key={index} {...props}>{block.text}</h2>;
       if (block.kind === "section") return <h3 key={index} {...props}>{block.text}</h3>;
       if (block.kind === "entry") return <h4 key={index} {...props}>{block.text}</h4>;

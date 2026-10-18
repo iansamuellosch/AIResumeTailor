@@ -64,3 +64,22 @@ it("does not revalidate legacy resumes against a different source profile versio
   expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("source profile for this resume is unavailable");
   expect(requestResumeValidation).not.toHaveBeenCalled();
 });
+it("saves a layout while preserving unsaved text and its export guard without calling Gemini", async () => {
+  const { resume } = await fixture();
+  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Unsaved text remains here." } });
+  fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
+  await waitFor(async () => expect((await readResumeRecord(db, resume.id))?.content.settings.template).toBe("classic"));
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Unsaved text remains here.");
+  expect(screen.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+  expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Unsaved resume changes");
+  const record = await readResumeRecord(db, resume.id);
+  expect(record?.content.summary).toBe(resume.summary);
+  expect(record?.content.validation).toEqual(resume.validation);
+  expect(requestResumeValidation).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Changes saved locally"));
+  const saved = await readResumeRecord(db, resume.id);
+  expect(saved?.content.summary).toBe("Unsaved text remains here.");
+  expect(saved?.content.settings.template).toBe("classic");
+  expect(saved?.content.validation.status).toBe("pending-semantic-review");
+});

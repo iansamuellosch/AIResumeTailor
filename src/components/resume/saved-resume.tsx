@@ -1,9 +1,12 @@
 "use client";
+import { LayoutPicker } from "./layout-picker";
+import type { ResumeTemplate } from "@/schemas/resume-template";
+import { resumeTemplates } from "@/lib/resume/templates";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getDatabase, readProfile, type StoredResume } from "@/lib/storage/database";
-import { readResumeRecord, updateGeneratedResume, restoreGeneratedResume } from "@/lib/storage/resumes";
+import { readResumeRecord, updateGeneratedResume, restoreGeneratedResume, updateResumeLayout } from "@/lib/storage/resumes";
 import { generatedResumeSchema, type GeneratedResume } from "@/schemas/resume";
 import { requestResumeValidation } from "@/lib/generation/client";
 import { ExportControls } from "./export-controls";
@@ -60,6 +63,18 @@ export function SavedResume({ id }: { id: string }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save changes. Your edits are still in this tab."); }
     finally { lock.current = false; setBusy(false); }
   }
+  async function changeLayout(template: ResumeTemplate) {
+    if (!record || !resume || lock.current || template === resume.settings.template) return;
+    lock.current = true; setBusy(true); setError("");
+    try {
+      const updated = await updateResumeLayout(getDatabase(), id, template, record.updatedAt);
+      setRecord(updated);
+      // Keep unsaved text edits in this tab. Only layout is saved by this action.
+      setResume({ ...resume, updatedAt: updated.updatedAt, settings: { ...resume.settings, template } });
+      setMessage(`${resumeTemplates[template].name} layout saved.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save the layout. Try again."); }
+    finally { lock.current = false; setBusy(false); }
+  }
   async function restore() {
     if (!record || lock.current || !window.confirm("Restore the original generated resume? This replaces your saved and unsaved resume edits.")) return;
     lock.current = true; setBusy(true); setError(""); setMessage("");
@@ -77,6 +92,7 @@ export function SavedResume({ id }: { id: string }) {
   if (!loaded) return <p role="status">Loading saved resume…</p>;
   if (!resume) return <div className="space-y-3">{error && <p role="alert">{error}</p>}<p>No saved resume could be loaded in this browser. <Link href="/dashboard" className="underline">Return to dashboard</Link></p></div>;
   return <div className="space-y-6">
+    <div className="rounded-xl border bg-card p-4 sm:p-5"><LayoutPicker value={resume.settings.template} onChange={(template) => void changeLayout(template)} disabled={busy} /><p className="mt-3 text-xs leading-5 text-muted-foreground">Layout changes save automatically and apply to PDF and Word downloads.</p></div>
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" disabled={busy} onClick={() => setEditing(!editing)}>{editing ? "Hide editor" : "Edit resume"}</Button>
       <Button disabled={!dirty || busy} onClick={() => void save(false)}>Save changes</Button>
