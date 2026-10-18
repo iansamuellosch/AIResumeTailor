@@ -99,6 +99,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   expect(reviewCalls).toBe(1);
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "More resume actions", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: /^Reload saved version/ })).toHaveCount(0);
   await page.getByRole("menuitem", { name: /^Restore generated version/ }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText(input.profile.summary);
   await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);

@@ -32,7 +32,10 @@ export async function readResumeRecord(db: ResumeDatabase, id: string): Promise<
 export async function readGeneratedResume(db: ResumeDatabase, id: string): Promise<GeneratedResume | undefined> {
   return (await readResumeRecord(db, id))?.content;
 }
-const conflict = () => new LocalStorageError("This resume changed in another tab. Reload it before saving. Your edits are still in this tab.");
+export class ResumeConflictError extends LocalStorageError {
+  constructor() { super("This resume changed or was deleted in another tab. Reload it before saving. Your edits are still in this tab."); this.name = "ResumeConflictError"; }
+}
+const conflict = () => new ResumeConflictError();
 /** Compare-and-swap prevents lost edits, deleted-record resurrection, and original replacement. */
 export async function updateGeneratedResume(db: ResumeDatabase, input: unknown, expectedUpdatedAt: string, mode: "edit" | "review" = "edit"): Promise<StoredResume> {
   const content = generatedResumeSchema.parse(input);

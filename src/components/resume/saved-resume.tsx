@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getDatabase, type StoredResume } from "@/lib/storage/database";
-import { readResumeRecord, updateGeneratedResume, restoreGeneratedResume, updateResumeLayout } from "@/lib/storage/resumes";
+import { readResumeRecord, updateGeneratedResume, restoreGeneratedResume, updateResumeLayout, ResumeConflictError } from "@/lib/storage/resumes";
 import { generatedResumeSchema, type GeneratedResume } from "@/schemas/resume";
 import { resumeEditError, resumeTextHasChanges } from "@/lib/generation/editing";
 import { resumeBlocks } from "@/lib/export/document";
@@ -23,6 +23,7 @@ export function SavedResume({ id }: { id: string }) {
   const [record, setRecord] = useState<StoredResume>();
   const [resume, setResume] = useState<GeneratedResume>();
   const [error, setError] = useState("");
+  const [saveConflict, setSaveConflict] = useState(false);
   const [message, setMessage] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -61,7 +62,7 @@ export function SavedResume({ id }: { id: string }) {
     window.addEventListener("beforeunload", unload); document.addEventListener("click", navigate, true);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", navigate, true); };
   }, [dirty]);
-  function accept(value: StoredResume) { setRecord(value); setResume(value.content); setDirty(false); setEditing(false); }
+  function accept(value: StoredResume) { setSaveConflict(false); setRecord(value); setResume(value.content); setDirty(false); setEditing(false); }
   async function save() {
     if (!resume || !record || lock.current) return;
     if (!dirty) { setEditing(false); return; }
@@ -74,7 +75,7 @@ export function SavedResume({ id }: { id: string }) {
       resumeBlocks(content);
       accept(await updateGeneratedResume(getDatabase(), content, record.updatedAt));
       setMessage("Changes saved locally.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save changes. Your edits are still in this tab."); }
+    } catch (cause) { if (cause instanceof ResumeConflictError) setSaveConflict(true); setError(cause instanceof Error ? cause.message : "Could not save changes. Your edits are still in this tab."); }
     finally { lock.current = false; setBusy(false); }
   }
   async function changeLayout(template: ResumeTemplate) {
@@ -87,7 +88,7 @@ export function SavedResume({ id }: { id: string }) {
       setResume({ ...resume, updatedAt: updated.updatedAt, settings: { ...resume.settings, template } });
       setMessage("");
       setLayoutsExpanded(false);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save the layout. Try again."); }
+    } catch (cause) { if (cause instanceof ResumeConflictError) setSaveConflict(true); setError(cause instanceof Error ? cause.message : "Could not save the layout. Try again."); }
     finally { lock.current = false; setBusy(false); }
   }
   async function restore() {
@@ -95,15 +96,15 @@ export function SavedResume({ id }: { id: string }) {
     lock.current = true; setBusy(true); setError(""); setMessage("");
     setActivity("Restoring original…");
     try { accept(await restoreGeneratedResume(getDatabase(), id, record.updatedAt)); setMessage("Original generated content restored."); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not restore the original."); }
+    catch (cause) { if (cause instanceof ResumeConflictError) setSaveConflict(true); setError(cause instanceof Error ? cause.message : "Could not restore the original."); }
     finally { lock.current = false; setBusy(false); }
   }
   async function reload() {
-    if (busy || (dirty && !window.confirm("Discard your unsaved changes and reload the saved resume?"))) return;
-    setBusy(true); setActivity("Reloading…"); setError("");
+    if (!saveConflict || lock.current || (dirty && !window.confirm("Discard your unsaved changes and reload the saved resume?"))) return;
+    lock.current = true; setBusy(true); setActivity("Reloading…"); setError("");
     try { const value = await readResumeRecord(getDatabase(), id); if (!value) throw new Error("This resume is no longer saved."); accept(value); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not reload the resume."); }
-    finally { setBusy(false); }
+    finally { lock.current = false; setBusy(false); }
   }
   function cancelEditing() {
     if (busy || !record || (dirty && !window.confirm("Discard your unsaved edits and return to the saved resume?"))) return;
@@ -124,7 +125,6 @@ export function SavedResume({ id }: { id: string }) {
             <DropdownMenu.Trigger asChild><Button variant="outline" size="icon" disabled={busy} aria-label="More resume actions"><Ellipsis aria-hidden="true" /></Button></DropdownMenu.Trigger>
             <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={6} className="z-50 max-w-72 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-md">
               <DropdownMenu.Item disabled={busy} onSelect={() => void restore()} className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[disabled]:opacity-50"><span className="block font-medium">Restore generated version</span><span className="mt-1 block text-xs text-muted-foreground">Replace edits with the original AI draft.</span></DropdownMenu.Item>
-              <DropdownMenu.Item disabled={busy} onSelect={() => void reload()} className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[disabled]:opacity-50"><span className="block font-medium">Reload saved version</span><span className="mt-1 block text-xs text-muted-foreground">Load the latest copy saved in this browser.</span></DropdownMenu.Item>
             </DropdownMenu.Content></DropdownMenu.Portal>
           </DropdownMenu.Root>
         </div>
@@ -140,7 +140,7 @@ export function SavedResume({ id }: { id: string }) {
         <p className="mt-3 hidden text-xs leading-5 text-muted-foreground lg:block">Layout saves automatically. Your wording stays the same.</p>
       </div>
       <section aria-label="Resume workspace" className="min-w-0 scroll-mt-4 space-y-4 lg:col-start-1 lg:row-start-1 lg:row-span-2">
-        {error && <p role="alert" aria-label="Resume error" className="rounded-lg border border-destructive p-4 text-sm text-destructive">{error}</p>}
+        {(error || saveConflict) && <div className="space-y-3 rounded-lg border border-destructive p-4"><p role="alert" aria-label="Resume error" className="text-sm text-destructive">{error || "This copy is out of date. Reload the saved version before saving."}</p>{saveConflict && <Button variant="outline" disabled={busy} onClick={() => void reload()}>Reload saved version</Button>}</div>}
         {editing ? <ResumeEditor resume={resume} disabled={busy} onChange={(value) => { const changed = !record || resumeTextHasChanges(value, record.content); setResume(changed ? value : { ...value, validation: record!.content.validation }); setDirty(changed); setMessage(""); setError(""); }} /> : <ResumeDocument resume={resume} />}
       </section>
       <aside aria-label="Download resume" className="space-y-4 lg:col-start-2 lg:row-start-2">

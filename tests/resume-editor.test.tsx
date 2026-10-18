@@ -70,6 +70,15 @@ it("blocks stale tab saves without discarding local text", async () => {
   expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("another tab");
   expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Stale tab's edits.");
   expect((await readResumeRecord(db, resume.id))?.content.summary).toBe("Newer tab's summary.");
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  fireEvent.click(screen.getByRole("button", { name: "Reload saved version" }));
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Stale tab's edits.");
+  confirm.mockReturnValue(true);
+  fireEvent.click(screen.getByRole("button", { name: "Reload saved version" }));
+  await waitFor(() => expect(screen.getByRole("article", { name: "Saved resume" })).toHaveTextContent("Newer tab's summary."));
+  expect(screen.queryByRole("button", { name: "Reload saved version" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("alert", { name: "Resume error" })).not.toBeInTheDocument();
+  confirm.mockRestore();
 });
 it("allows editing a legacy resume without its source snapshot or a new AI check", async () => {
   await fixture(false);
@@ -123,6 +132,7 @@ it("stays in the editor after a failed save and returns to preview after retry",
   expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Keep this text.");
   expect(screen.queryByRole("article", { name: "Saved resume" })).not.toBeInTheDocument();
   expect((await readResumeRecord(db, resume.id))?.content.summary).toBe(resume.summary);
+  expect(screen.queryByRole("button", { name: "Reload saved version" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
   expect(screen.getByRole("article", { name: "Saved resume" })).toHaveTextContent("Keep this text.");
@@ -151,4 +161,29 @@ it("retains the saved fact check when in-place text is restored to its saved val
   fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
   expect((await readResumeRecord(db, resume.id))?.content).toEqual(resume);
   expect(requestResumeValidation).not.toHaveBeenCalled();
+});
+
+it("offers reload for a layout conflict and preserves it while text is edited", async () => {
+  const { resume } = await fixture();
+  expect(screen.queryByRole("button", { name: "Reload saved version" })).not.toBeInTheDocument();
+  await updateGeneratedResume(db, { ...resume, summary: "Updated elsewhere." }, resume.updatedAt);
+  fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
+  expect(await screen.findByRole("button", { name: "Reload saved version" })).toBeEnabled();
+  fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Still editing locally." } });
+  expect(screen.getByRole("button", { name: "Reload saved version" })).toBeEnabled();
+  expect(screen.getByRole("alert", { name: "Resume error" })).toHaveTextContent("out of date");
+});
+it("keeps local edits if the conflicting resume was deleted or reloading fails", async () => {
+  const { resume } = await fixture();
+  await db.generatedResumes.delete(resume.id);
+  fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Keep this local copy." } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  const reload = await screen.findByRole("button", { name: "Reload saved version" });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  fireEvent.click(reload);
+  await waitFor(() => expect(screen.getByRole("alert", { name: "Resume error" })).toHaveTextContent("no longer saved"));
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Keep this local copy.");
+  expect(await db.generatedResumes.count()).toBe(0);
+  expect(screen.getByRole("button", { name: "Reload saved version" })).toBeEnabled();
+  confirm.mockRestore();
 });
