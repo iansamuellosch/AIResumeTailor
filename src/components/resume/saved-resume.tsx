@@ -37,7 +37,6 @@ export function SavedResume({ id }: { id: string }) {
     previouslyExpanded.current = layoutsExpanded;
   }, [layoutsExpanded, busy]);
   const lock = useRef(false);
-  const workspace = useRef<HTMLElement>(null);
   const workspaceTitle = useRef<HTMLHeadingElement>(null);
   const previousMode = useRef(false);
   const [activity, setActivity] = useState("");
@@ -45,7 +44,7 @@ export function SavedResume({ id }: { id: string }) {
     if (previousMode.current === editing) return;
     previousMode.current = editing;
     workspaceTitle.current?.focus({ preventScroll: true });
-    workspace.current?.scrollIntoView?.({ block: "start" });
+    workspaceTitle.current?.scrollIntoView?.({ block: "start" });
   }, [editing]);
   useEffect(() => {
     let active = true;
@@ -110,9 +109,28 @@ export function SavedResume({ id }: { id: string }) {
     if (busy || !record || (dirty && !window.confirm("Discard your unsaved edits and return to the saved resume?"))) return;
     accept(record); setError(""); setMessage("");
   }
-  if (!loaded) return <p role="status">Loading saved resume…</p>;
-  if (!resume) return <div className="space-y-3">{error && <p role="alert">{error}</p>}<p>No saved resume could be loaded in this browser. <Link href="/dashboard" className="underline">Return to dashboard</Link></p></div>;
+  if (!loaded) return <div className="space-y-6"><h1 className="text-3xl font-semibold tracking-tight">Resume preview</h1><p role="status">Loading saved resume…</p></div>;
+  if (!resume) return <div className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight">Resume preview</h1>{error && <p role="alert">{error}</p>}<p>No saved resume could be loaded in this browser. <Link href="/dashboard" className="underline">Return to dashboard</Link></p></div>;
   return <div className="space-y-6">
+    <header className={`${editing ? "sticky top-0 z-20 bg-background py-3" : ""} space-y-2`}>
+      <div className="flex items-center justify-between gap-3">
+        <h1 ref={workspaceTitle} tabIndex={-1} className="min-w-0 text-xl font-semibold tracking-tight focus:outline-none sm:text-3xl">{editing ? "Edit resume" : "Resume preview"}</h1>
+        <div className="flex shrink-0 items-center gap-2">
+          {editing ? <>
+            <Button variant="outline" disabled={busy} onClick={cancelEditing}>Cancel</Button>
+            <Button disabled={busy} onClick={() => void save()}>{activity === "Saving changes…" && busy ? "Saving…" : dirty ? "Save changes" : "Done editing"}</Button>
+          </> : <Button disabled={busy} onClick={() => setEditing(true)}>Edit resume</Button>}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild><Button variant="outline" size="icon" disabled={busy} aria-label="More resume actions"><Ellipsis aria-hidden="true" /></Button></DropdownMenu.Trigger>
+            <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={6} className="z-50 max-w-72 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-md">
+              <DropdownMenu.Item disabled={busy} onSelect={() => void restore()} className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[disabled]:opacity-50"><span className="block font-medium">Restore generated version</span><span className="mt-1 block text-xs text-muted-foreground">Replace edits with the original AI draft.</span></DropdownMenu.Item>
+              <DropdownMenu.Item disabled={busy} onSelect={() => void reload()} className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[disabled]:opacity-50"><span className="block font-medium">Reload saved version</span><span className="mt-1 block text-xs text-muted-foreground">Load the latest copy saved in this browser.</span></DropdownMenu.Item>
+            </DropdownMenu.Content></DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        </div>
+      </div>
+      {(editing || busy || message) && <p role="status" aria-label="Resume save status" className="text-xs text-muted-foreground">{busy ? activity : dirty ? "Unsaved resume changes" : message || "Resume saved locally"}</p>}
+    </header>
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:grid-rows-[auto_1fr]">
       <div className="rounded-xl border bg-card p-3 lg:col-start-2 lg:row-start-1 lg:p-4">
         <button ref={layoutDisclosure} type="button" aria-label="Change resume layout" aria-expanded={layoutsExpanded} aria-controls="resume-layout-options" disabled={busy} onClick={() => setLayoutsExpanded(!layoutsExpanded)} className="flex min-h-9 w-full cursor-pointer items-center justify-between rounded-md text-sm font-medium outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 lg:hidden"><span>Layout: {resumeTemplates[resume.settings.template].name}</span><span className="flex items-center gap-2 text-muted-foreground">Change layout<ChevronDown aria-hidden="true" className={`size-4 ${layoutsExpanded ? "rotate-180" : ""}`} /></span></button>
@@ -121,26 +139,7 @@ export function SavedResume({ id }: { id: string }) {
         </div>
         <p className="mt-3 hidden text-xs leading-5 text-muted-foreground lg:block">Layout saves automatically. Your wording stays the same.</p>
       </div>
-      <section ref={workspace} aria-label="Resume workspace" className="min-w-0 scroll-mt-4 space-y-4 lg:col-start-1 lg:row-start-1 lg:row-span-2">
-        <div className={`${editing ? "sticky top-3 z-20" : ""} space-y-2 rounded-xl border bg-card p-4 shadow-sm`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 ref={workspaceTitle} tabIndex={-1} className="font-semibold focus:outline-none">{editing ? "Edit resume" : "Preview"}</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              {editing ? <>
-                <Button variant="outline" disabled={busy} onClick={cancelEditing}>Cancel</Button>
-                <Button disabled={busy} onClick={() => void save()}>{activity === "Saving changes…" && busy ? "Saving…" : dirty ? "Save changes" : "Done editing"}</Button>
-              </> : <Button disabled={busy} onClick={() => setEditing(true)}>Edit resume</Button>}
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild><Button variant="outline" size="icon" disabled={busy} aria-label="More resume actions"><Ellipsis aria-hidden="true" /></Button></DropdownMenu.Trigger>
-                <DropdownMenu.Portal><DropdownMenu.Content align="end" sideOffset={6} className="z-50 max-w-72 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-md">
-                  <DropdownMenu.Item disabled={busy} onSelect={() => void restore()} className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[disabled]:opacity-50"><span className="block font-medium">Restore generated version</span><span className="mt-1 block text-xs text-muted-foreground">Replace edits with the original AI draft.</span></DropdownMenu.Item>
-                  <DropdownMenu.Item disabled={busy} onSelect={() => void reload()} className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[disabled]:opacity-50"><span className="block font-medium">Reload saved version</span><span className="mt-1 block text-xs text-muted-foreground">Load the latest copy saved in this browser.</span></DropdownMenu.Item>
-                </DropdownMenu.Content></DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
-          </div>
-          <p role="status" aria-label="Resume save status" className="text-xs text-muted-foreground">{busy ? activity : dirty ? "Unsaved resume changes" : message || "Resume saved locally"}</p>
-        </div>
+      <section aria-label="Resume workspace" className="min-w-0 scroll-mt-4 space-y-4 lg:col-start-1 lg:row-start-1 lg:row-span-2">
         {error && <p role="alert" aria-label="Resume error" className="rounded-lg border border-destructive p-4 text-sm text-destructive">{error}</p>}
         {editing ? <ResumeEditor resume={resume} disabled={busy} onChange={(value) => { const changed = !record || resumeTextHasChanges(value, record.content); setResume(changed ? value : { ...value, validation: record!.content.validation }); setDirty(changed); setMessage(""); setError(""); }} /> : <ResumeDocument resume={resume} />}
       </section>

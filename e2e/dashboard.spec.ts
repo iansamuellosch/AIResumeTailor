@@ -87,7 +87,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).not.toContainText("An edit to discard.");
-  await expect(page.getByRole("heading", { name: "Preview", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Resume preview", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Edit resume", exact: true }).click();
   await page.getByLabel("Professional summary", { exact: true }).fill("Led an engineering team.");
   await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);
