@@ -109,11 +109,13 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
         {document && <p className="mt-4 max-w-full break-words text-sm text-muted-foreground">{document.name}</p>}
       </div>
       {error && <p role="alert" aria-label="Upload error" className="text-sm leading-6 text-destructive">{error}</p>}
-      <div className="flex flex-wrap justify-center gap-3">
-        {document && <Button variant="outline" disabled={disabled} onClick={() => void processUpload()}>Retry saved resume</Button>}
+      <div className="space-y-3 text-center">
+        {(document || onCancel || storageFailed) && <div className="mx-auto grid w-full max-w-sm gap-3 sm:w-fit sm:max-w-full sm:auto-cols-fr sm:grid-flow-col">
+          {document && <Button variant="outline" disabled={disabled} onClick={() => void processUpload()}>Retry saved resume</Button>}
+          {onCancel && <Button variant="outline" disabled={disabled} onClick={onCancel}>Back to profile</Button>}
+          {storageFailed && <Button variant="outline" onClick={() => window.location.reload()}>Retry local storage</Button>}
+        </div>}
         <Button variant="link" className="px-0" disabled={disabled} onClick={() => void startManually()}>Start from scratch</Button>
-        {onCancel && <Button variant="outline" disabled={disabled} onClick={onCancel}>Back to profile</Button>}
-        {storageFailed && <Button variant="outline" onClick={() => window.location.reload()}>Retry local storage</Button>}
       </div>
     </section>
   );

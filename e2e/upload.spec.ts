@@ -146,6 +146,10 @@ test("asks before replacing a resume and preserves the approved profile", async 
   }));
   expect(stored).toEqual(approved);
   expect(calls).toBe(1);
+  await page.getByRole("button", { name: "More profile actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Replace resume", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Retry saved resume", exact: true })).toBeEnabled();
+  await page.screenshot({ path: testInfo.outputPath("replacement-upload-actions.png"), fullPage: true });
 });
 
 test("replacement saves pending profile edits and cancelling returns to those edits", async ({ page }) => {
