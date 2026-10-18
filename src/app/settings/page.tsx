@@ -15,12 +15,13 @@ export default function SettingsPage() {
         <p>Clearing browser data can remove your saved information. Private browsing may also remove it when you close the window. Download a profile backup below to keep a copy.</p>
       </CardContent>
     </Card>
-    <Card>
+    <Card id="ai-processing" className="scroll-mt-6">
       <CardHeader><CardTitle>External AI processing</CardTitle></CardHeader>
       <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
         <p>Google Gemini helps read your uploaded resume, tailor it to a job, and check the result. This requires an internet connection.</p>
-        <p>Uploading sends the text from your resume to Gemini. Tailoring and fact checks send your job description, relevant profile information, notes, and resume content. Contact details are excluded from tailoring and fact checks. Your original file stays in this browser.</p>
-        <p>AI can make mistakes, even after a fact check. Review your resume before using it.</p>
+        <p>When you upload a resume, its text is extracted on your device and sent through our application server to Gemini for parsing. Your original file stays in this browser. The extracted information is saved as a draft for you to review.</p>
+        <p>Tailoring sends your job description, relevant profile information, and notes to Gemini. Generation checks compare the resulting resume wording with its source facts. Contact details are excluded from tailoring and generation checks. Profile and resume content pass temporarily through our server for AI processing; they are not stored in a server database.</p>
+        <p>AI can make mistakes, even after a generation check. Review your profile after parsing and your resume before using it. Saving your own resume edits does not send them to Gemini.</p>
       </CardContent>
     </Card>
     <LocalData />

@@ -22,7 +22,9 @@ for (const extension of ["pdf", "docx"]) {
     });
     await page.goto("/");
     await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
-    await page.getByLabel("Choose a resume file").setInputFiles(fixture(extension));
+    const fileChooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Upload resume", exact: true }).click();
+    await (await fileChooser).setFiles(fixture(extension));
     await expect(page).toHaveURL(/\/profile$/, { timeout: 45_000 });
     await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
     await expect(page.getByText("Draft profile", { exact: false })).toBeVisible();
@@ -63,7 +65,7 @@ test("rejects corrupt files and offers manual profile creation", async ({ page }
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   await page.getByLabel("Choose a resume file").setInputFiles({ name: "corrupt.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from("corrupt data") });
   await expect(page.getByRole("alert", { name: "Upload error" })).toContainText("corrupt", { timeout: 45_000 });
-  await page.getByRole("button", { name: "Create draft manually" }).click();
+  await page.getByRole("button", { name: "Start from scratch" }).click();
   await expect(page).toHaveURL(/\/profile$/);
   await page.getByLabel("Full name", { exact: true }).fill("Manual Profile");
   await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
@@ -122,7 +124,7 @@ test("asks before replacing a resume and preserves the approved profile", async 
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByLabel("Choose a resume file").setInputFiles(fixture("docx"));
   expect(calls).toBe(0);
-  await expect(page.getByText("Saved locally:", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("resume.docx", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Back to profile", exact: true }).click();
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
   await page.getByRole("button", { name: "More profile actions", exact: true }).click();
@@ -147,7 +149,7 @@ test("asks before replacing a resume and preserves the approved profile", async 
 
 test("replacement saves pending profile edits and cancelling returns to those edits", async ({ page }) => {
   await page.goto("/profile");
-  await page.getByRole("button", { name: "Create draft manually" }).click();
+  await page.getByRole("button", { name: "Start from scratch" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Pending replacement edits");
   await page.getByRole("button", { name: "More profile actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Replace resume", exact: true }).click();

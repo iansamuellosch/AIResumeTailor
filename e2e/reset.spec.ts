@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 test("reset requires confirmation and returns to a fresh upload screen", async ({ page }) => {
   await page.goto("/profile");
-  await page.getByRole("button", { name: "Create draft manually" }).click();
+  await page.getByRole("button", { name: "Start from scratch" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Disposable test profile");
   await expect(page.getByRole("status", { name: "Profile save status" })).toContainText("Saved");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings" }).click();

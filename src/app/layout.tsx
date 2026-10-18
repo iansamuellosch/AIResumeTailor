@@ -7,7 +7,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return <html lang="en"><body className="min-h-screen bg-background font-sans text-foreground antialiased">
     <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-card focus:p-4">Skip to content</a>
     <Navigation />
-    <main id="main-content" className="mx-auto min-h-[70vh] max-w-6xl px-5 py-12 sm:px-8 sm:py-16">{children}</main>
-    <footer className="mx-auto flex max-w-6xl flex-col gap-3 border-t px-5 py-6 sm:flex-row sm:justify-between sm:px-8"><p className="text-xs text-muted-foreground">AI Resume Tailor · v0.6.0</p><StorageStatus /></footer>
+    <main id="main-content" className="mx-auto min-h-[70vh] max-w-6xl px-5 py-12 sm:px-8 sm:py-16"><StorageStatus />{children}</main>
   </body></html>;
 }

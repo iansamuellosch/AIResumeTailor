@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ResumeUpload } from "@/components/upload/resume-upload";
 import { getDatabase, readProfile } from "@/lib/storage/database";
@@ -32,15 +33,15 @@ export function ProfileWorkspace() {
   if (error) return <div className="space-y-4"><p role="alert" className="text-destructive">{error}</p><Button variant="outline" onClick={() => void load()}>Retry local storage</Button></div>;
   if (hasProfile === undefined) return <p role="status">Loading your profile…</p>;
   const showUpload = !hasProfile || replacing;
-  return <div className={showUpload ? "mx-auto flex max-w-xl flex-col gap-8" : "space-y-7"}>
+  return <div className={showUpload ? "mx-auto flex max-w-xl flex-col gap-6" : "space-y-7"}>
     {showUpload && <div className="max-w-3xl space-y-3">
-      <h1 className="text-3xl font-semibold tracking-tight">Your professional profile</h1>
-      <p className="leading-7 text-muted-foreground">Start with your existing resume, or create your profile manually. You’ll review your information before using it to tailor a resume.</p>
+      <h1 className="text-3xl font-semibold tracking-tight">Start with your resume</h1>
+      <p className="leading-7 text-muted-foreground">We’ll turn it into a profile you can review and edit.</p>
     </div>}
     {showUpload ? <>
       <ResumeUpload onComplete={() => void load()} onCancel={hasProfile ? () => void load() : undefined} />
-      <aside id="upload-disclosure" aria-label="Data disclosure" className="border-t pt-5 text-xs leading-6 text-muted-foreground">
-        Your original file and profile draft are stored in this browser. Selecting or dropping a file sends its extracted text through our server to Google Gemini for parsing. The original file stays on your device. AI processing requires an internet connection. Review the draft for accuracy. Clearing browser data can remove local information.
+      <aside id="upload-disclosure" aria-label="Data disclosure" className="text-xs leading-6 text-muted-foreground">
+        Saved in this browser. Resume text is sent to Google Gemini for parsing. <Link href="/settings#ai-processing" className="underline underline-offset-4">Privacy details</Link>
       </aside>
     </> : <ProfileEditor onReplace={() => setReplacing(true)} />}
   </div>;

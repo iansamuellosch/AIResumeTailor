@@ -4,7 +4,7 @@ import type { ProfessionalProfile } from "../src/schemas/profile";
 
 async function openProfile(page: Page) {
   await page.goto("/profile");
-  const manual = page.getByRole("button", { name: "Create draft manually" });
+  const manual = page.getByRole("button", { name: "Start from scratch" });
   await expect(manual.or(page.getByLabel("Full name", { exact: true }))).toBeVisible();
   if (await manual.isVisible()) await manual.click();
 }
@@ -203,7 +203,7 @@ test("navigation saves pending changes and the dashboard requires approval", asy
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Approve your profile first" })).toBeVisible();
   await page.getByRole("link", { name: "Review profile", exact: true }).click();
-  await page.getByRole("button", { name: "Create draft manually" }).click();
+  await page.getByRole("button", { name: "Start from scratch" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Pending Navigation");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/settings$/);

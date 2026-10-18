@@ -6,7 +6,7 @@ import { selectEvidence } from "../src/lib/generation/evidence";
 
 async function seedApprovedProfile(page: Page, input = tailoringInput()) {
   await page.goto("/");
-  await expect(page.getByRole("contentinfo").getByRole("status")).toContainText("Local storage ready");
+  await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   await page.evaluate(async (profile) => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open("ai-resume-tailor");
     request.onerror = () => reject(request.error);

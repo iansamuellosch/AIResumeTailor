@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getDatabase, readProfile, type UploadedDocument } from "@/lib/storage/database";
 import { createManualDraft, draftSnapshot, readLatestDocument, storeOriginalDocument } from "@/lib/storage/uploads";
@@ -92,28 +91,27 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
           if (event.dataTransfer.files.length !== 1) { setError("Choose one resume at a time."); return; }
           void processUpload(event.dataTransfer.files[0]);
         }}
-        className={`rounded-xl border border-dashed px-6 py-10 sm:px-10 ${dragging ? "border-primary bg-secondary" : "bg-card"}`}
+        className={`rounded-xl border border-dashed px-6 py-8 text-center ${dragging ? "border-primary bg-secondary" : "bg-card"}`}
         aria-busy={!!busy}
       >
-        <Upload aria-hidden="true" className="mb-5 size-7 text-muted-foreground" />
-        <h2 id="upload-title" className="text-lg font-medium">{verified ? "Replace Resume" : "Upload your resume"}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Drag and drop a file here, or choose a file below.</p>
-        <p id="upload-formats" className="mt-2 text-sm text-muted-foreground">PDF or DOCX · Maximum 5 MB</p>
+        <Button id="upload-title" disabled={disabled} aria-describedby="upload-formats upload-disclosure" onClick={() => input.current?.click()}>{verified ? "Upload replacement" : "Upload resume"}</Button>
+        <p className="mt-3 text-sm text-muted-foreground">or drag and drop here</p>
+        <p id="upload-formats" className="mt-2 text-xs text-muted-foreground">PDF or DOCX · Up to 5 MB</p>
         <label htmlFor="resume-file" className="sr-only">Choose a resume file</label>
         <input
           ref={input} id="resume-file" type="file" accept=".pdf,.docx" disabled={disabled}
           aria-describedby="upload-formats upload-disclosure"
           onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void processUpload(file); }}
-          className="mt-6 block w-full min-w-0 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          className="hidden"
         />
         {busy && <p role="status" className="mt-4 text-sm">{busy}</p>}
         {!ready && <p className="mt-4 text-sm text-muted-foreground">Loading local workspace…</p>}
-        {document && <p className="mt-4 break-words text-sm text-muted-foreground">Saved locally: {document.name}</p>}
+        {document && <p className="mt-4 break-words text-sm text-muted-foreground">{document.name}</p>}
       </div>
       {error && <p role="alert" aria-label="Upload error" className="text-sm leading-6 text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-3">
         {document && <Button variant="outline" disabled={disabled} onClick={() => void processUpload()}>Retry saved resume</Button>}
-        <Button variant="ghost" disabled={disabled} onClick={() => void startManually()}>Create draft manually</Button>
+        <Button variant="link" className="px-0" disabled={disabled} onClick={() => void startManually()}>Start from scratch</Button>
         {onCancel && <Button variant="outline" disabled={disabled} onClick={onCancel}>Back to profile</Button>}
         {storageFailed && <Button variant="outline" onClick={() => window.location.reload()}>Retry local storage</Button>}
       </div>
