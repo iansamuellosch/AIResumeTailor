@@ -32,8 +32,8 @@ export function ProfileWorkspace() {
   if (error) return <div className="space-y-4"><p role="alert" className="text-destructive">{error}</p><Button variant="outline" onClick={() => void load()}>Retry local storage</Button></div>;
   if (hasProfile === undefined) return <p role="status">Loading your profile…</p>;
   const showUpload = !hasProfile || replacing;
-  return <div className={showUpload ? "mx-auto flex max-w-xl flex-col gap-6" : "space-y-7"}>
-    {showUpload && <div className="max-w-3xl space-y-3">
+  return <div className={showUpload ? "mx-auto flex max-w-xl flex-col gap-6 lg:pt-8" : "space-y-7"}>
+    {showUpload && <div className="max-w-3xl space-y-3 text-center">
       <h1 className="text-3xl font-semibold tracking-tight">Start with your resume</h1>
       <p className="leading-7 text-muted-foreground">We’ll turn it into a profile you can review and edit.</p>
     </div>}

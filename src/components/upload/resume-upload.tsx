@@ -91,10 +91,10 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
           if (event.dataTransfer.files.length !== 1) { setError("Choose one resume at a time."); return; }
           void processUpload(event.dataTransfer.files[0]);
         }}
-        className={`rounded-xl border border-dashed px-6 py-8 text-center ${dragging ? "border-primary bg-secondary" : "bg-card"}`}
+        className={`flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition-colors motion-reduce:transition-none ${dragging ? "border-primary bg-blue-50" : disabled ? "border-slate-300 bg-card" : "border-slate-300 bg-card hover:border-primary/60 hover:bg-blue-50/40 focus-within:border-primary/60 focus-within:bg-blue-50/40"}`}
         aria-busy={!!busy}
       >
-        <Button id="upload-title" disabled={disabled} aria-describedby="upload-formats footer-tagline" onClick={() => input.current?.click()}>{verified ? "Upload replacement" : "Upload resume"}</Button>
+        <Button id="upload-title" size="lg" className="h-11 px-6 text-base" disabled={disabled} aria-describedby="upload-formats footer-tagline" onClick={() => input.current?.click()}>{verified ? "Upload replacement" : "Upload resume"}</Button>
         <p className="mt-3 text-sm text-muted-foreground">or drag and drop here</p>
         <p id="upload-formats" className="mt-2 text-xs text-muted-foreground">PDF or DOCX · Up to 5 MB</p>
         <label htmlFor="resume-file" className="sr-only">Choose a resume file</label>
@@ -106,7 +106,7 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
         />
         {busy && <p role="status" className="mt-4 text-sm">{busy}</p>}
         {!ready && <p className="mt-4 text-sm text-muted-foreground">Loading local workspace…</p>}
-        {document && <p className="mt-4 break-words text-sm text-muted-foreground">{document.name}</p>}
+        {document && <p className="mt-4 max-w-full break-words text-sm text-muted-foreground">{document.name}</p>}
       </div>
       {error && <p role="alert" aria-label="Upload error" className="text-sm leading-6 text-destructive">{error}</p>}
       <div className="flex flex-wrap justify-center gap-3">
