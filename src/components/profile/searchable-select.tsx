@@ -38,7 +38,7 @@ export function SearchableSelect({ id, value, options, onChange, onBlur, buttonR
     <Popover.Portal>
       <Popover.Content aria-label="Choose a skill category" align="start" sideOffset={4} className="z-50 w-[var(--radix-popover-trigger-width)] rounded-lg border bg-popover p-2 text-popover-foreground shadow-md" onOpenAutoFocus={(event) => { event.preventDefault(); input.current?.focus(); }}>
         <input ref={input} role="combobox" aria-label="Search categories" aria-autocomplete="list" aria-expanded={open} aria-controls={listId} aria-activedescendant={matches[active] ? `${listId}-${active}` : undefined}
-          value={query} placeholder="Search categories…" className="mb-2 w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+          value={query} placeholder="Search categories…" className="mb-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
           onChange={(event) => { setQuery(event.target.value); setActive(0); }} onKeyDown={(event) => {
             if (event.key === "ArrowDown") { event.preventDefault(); highlight(active + 1); }
             if (event.key === "ArrowUp") { event.preventDefault(); highlight(active - 1); }

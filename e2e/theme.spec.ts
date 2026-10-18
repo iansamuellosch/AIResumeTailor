@@ -1,14 +1,19 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { tailoringInput } from "../tests/fixtures/tailoring";
 import { THEME_STORAGE_KEY } from "../src/lib/theme/preference";
 
-test("follows device theme, remembers explicit choices, and synchronizes tabs", async ({ page, context }, testInfo) => {
+test("starts light even on dark devices, remembers explicit choices, and synchronizes tabs", async ({ page, context }, testInfo) => {
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error" && /hydrat|did not match/i.test(message.text())) errors.push(message.text()); });
   await page.emulateMedia({ colorScheme: "dark" }); await page.goto("/profile");
   await expect(page.getByRole("button", { name: "Upload resume", exact: true })).toBeEnabled();
-  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expect(page.locator("header img")).toHaveCSS("filter", "none");
+  await page.locator("header").screenshot({ path: testInfo.outputPath("light-header.png") });
+  await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
   await expect(page.getByRole("button", { name: "Switch to light theme", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Profile", exact: true })).toHaveCSS("background-color", "rgb(34, 53, 77)");
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("dark-upload.png"), fullPage: true });
   await page.getByRole("button", { name: "Switch to light theme", exact: true }).press("Enter");
@@ -41,4 +46,67 @@ test("theme controls work even if local preference storage is blocked", async ({
   await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
   await expect(page.getByRole("button", { name: "Switch to light theme", exact: true })).toBeVisible();
   await expect(page.locator("html")).toHaveClass(/dark/);
+});
+
+test("dark Profile and Dashboard controls, open menus, and branding are readable", async ({ page }, testInfo) => {
+  await page.goto("/profile");
+  await expect(page.getByRole("button", { name: "Upload resume", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
+  await page.evaluate(async (profile) => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open("ai-resume-tailor");
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result; const tx = db.transaction("profiles", "readwrite");
+      tx.objectStore("profiles").put({ key: "primary", profile });
+      tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = () => reject(tx.error);
+    };
+  }), tailoringInput().profile);
+  await page.reload();
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
+  for (const section of ["experience", "skills", "projects"]) await page.locator(`#section-${section} > summary`).click();
+  const employment = page.getByRole("group", { name: "Employment 1", exact: true });
+  await employment.getByLabel("Employment type", { exact: true }).selectOption("Full-time");
+  await expect(employment.getByLabel("Employment type", { exact: true })).toHaveCSS("color", "rgb(226, 234, 244)");
+  await expect(employment.getByLabel("Employment type", { exact: true })).toHaveCSS("border-color", "rgb(100, 123, 150)");
+  await expect(employment.getByLabel("Employment type", { exact: true })).toHaveCSS("color-scheme", "dark");
+  await employment.getByRole("button", { name: "Add achievement", exact: true }).click();
+  await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
+  await expect(employment.getByText("Add an achievement, or remove this item if you don't need it.", { exact: true })).toBeVisible();
+  expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  await employment.screenshot({ path: testInfo.outputPath("dark-profile-controls.png") });
+  await page.getByLabel("Category", { exact: true }).click();
+  const menu = page.getByRole("dialog", { name: "Choose a skill category" });
+  await expect(menu).toHaveCSS("background-color", "rgb(23, 35, 52)");
+  const search = page.getByRole("combobox", { name: "Search categories" });
+  await search.fill("professional");
+  expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  await menu.screenshot({ path: testInfo.outputPath("dark-profile-category.png") });
+  await search.press("Escape");
+  await page.getByRole("button", { name: "More profile actions", exact: true }).click();
+  await expect(page.getByRole("menu")).toHaveCSS("background-color", "rgb(23, 35, 52)");
+  await page.getByRole("menu").screenshot({ path: testInfo.outputPath("dark-profile-actions.png") });
+  await page.keyboard.press("Escape");
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true }).click();
+  await page.locator("summary").filter({ hasText: "Optional job information" }).click();
+  await page.getByLabel("Company name", { exact: true }).fill("Example Company");
+  await page.getByLabel("Job title", { exact: true }).fill("Coordinator");
+  await page.getByLabel("Additional notes", { exact: true }).fill("Emphasize transferable skills.");
+  await page.getByLabel("Target length", { exact: true }).selectOption("two-pages");
+  await page.getByRole("radio", { name: "Compact", exact: true }).focus();
+  await page.getByRole("radio", { name: "Compact", exact: true }).press("Space");
+  await page.getByRole("button", { name: "Generate Tailored Resume", exact: true }).click();
+  await expect(page.locator("#job-error")).toBeVisible();
+  expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  await expect(page.getByLabel("Job description", { exact: true })).toHaveCSS("border-color", "rgb(100, 123, 150)");
+  await expect(page.getByLabel("Target length", { exact: true })).toHaveCSS("color-scheme", "dark");
+  await page.screenshot({ path: testInfo.outputPath("dark-dashboard-controls.png"), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const logo = page.locator("header img");
+  await expect(logo).toHaveAttribute("src", /brand%2Flogo.png/);
+  expect(await logo.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(logo).toHaveCSS("filter", "brightness(0) invert(1)");
+  const icon = page.locator('link[rel="icon"][type="image/svg+xml"]');
+  const response = await page.request.get((await icon.getAttribute("href"))!);
+  expect(response.ok()).toBe(true); expect(await response.text()).toContain("data:image/png;base64,");
+  expect((await page.request.get("/favicon.ico")).ok()).toBe(true);
 });

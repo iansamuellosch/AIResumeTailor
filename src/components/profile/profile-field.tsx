@@ -23,7 +23,7 @@ export function ProfileField({ name, definition, disabled = false, hideLabel = f
   const selected = useWatch({ control, name, disabled: definition.kind !== "select" });
   const error = getFieldState(name, formState).error;
   const inputId = `profile-${name}`;
-  const base = "w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60";
+  const base = "w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60";
   const registration = definition.kind === "search-select" || definition.kind === "skill-experience" ? undefined : register(name, {
     ...((definition.kind === "month" || definition.optional) ? { setValueAs: (value: string) => value || undefined } : {}),
   });

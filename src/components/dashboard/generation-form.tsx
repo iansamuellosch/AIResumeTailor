@@ -13,7 +13,7 @@ import { getDatabase, readProfile } from "@/lib/storage/database";
 import { saveGeneratedResume, updateGeneratedResume } from "@/lib/storage/resumes";
 import { requestResumeValidation, requestTailoredResume, type GenerationStage } from "@/lib/generation/client";
 
-const control = "mt-1.5 w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring";
+const control = "mt-1.5 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring";
 export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
   const factCount = [...profile.experience, ...profile.projects].reduce((sum, entry) => sum + entry.responsibilities.length + entry.achievements.length + entry.technologies.length + ("quantifiableResults" in entry ? entry.quantifiableResults.length : Number(Boolean(entry.description))), 0);
   const form = useForm<DashboardInput>({ resolver: zodResolver(dashboardInputSchema), defaultValues: { jobDescription: "", company: "", jobTitle: "", jobUrl: "", notes: "", settings: defaultResumeSettings } });

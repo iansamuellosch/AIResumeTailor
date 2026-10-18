@@ -10,7 +10,7 @@ function preference() {
 }
 function applyPreference() {
   const saved = preference();
-  document.documentElement.classList.toggle("dark", saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches));
+  document.documentElement.classList.toggle("dark", saved === "dark");
 }
 function subscribe(callback: () => void) {
   const observer = new MutationObserver(callback);
@@ -23,11 +23,9 @@ const getServerSnapshot = () => false;
 export function ThemeToggle() {
   const dark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const followDevice = () => { if (!preference()) applyPreference(); };
     const syncTabs = (event: StorageEvent) => { if (event.key === THEME_STORAGE_KEY || event.key === null) applyPreference(); };
-    media.addEventListener("change", followDevice); window.addEventListener("storage", syncTabs);
-    return () => { media.removeEventListener("change", followDevice); window.removeEventListener("storage", syncTabs); };
+    window.addEventListener("storage", syncTabs);
+    return () => { window.removeEventListener("storage", syncTabs); };
   }, []);
   const label = dark ? "Switch to light theme" : "Switch to dark theme";
   return <Button type="button" variant="ghost" size="icon" aria-label={label} title={label} onClick={() => {
