@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ResumeUpload } from "@/components/upload/resume-upload";
 import { getDatabase, readProfile } from "@/lib/storage/database";
+import { useApprovedProfile } from "@/hooks/use-approved-profile";
+import { ResumeHistory } from "@/components/dashboard/resume-history";
 import { ProfileEditor } from "./profile-editor";
 
 async function readWorkspace() {
@@ -13,6 +15,7 @@ async function readWorkspace() {
 }
 
 export function ProfileWorkspace() {
+  const { profile: approvedProfile, loaded: approvalLoaded } = useApprovedProfile();
   const [hasProfile, setHasProfile] = useState<boolean>();
   const [replacing, setReplacing] = useState(false);
   const [error, setError] = useState("");
@@ -40,5 +43,6 @@ export function ProfileWorkspace() {
     {showUpload ? <>
       <ResumeUpload onComplete={() => void load()} onCancel={hasProfile ? () => void load() : undefined} />
     </> : <ProfileEditor onReplace={() => setReplacing(true)} />}
+    {approvalLoaded && !approvedProfile && <ResumeHistory />}
   </div>;
 }

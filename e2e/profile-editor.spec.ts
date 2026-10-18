@@ -201,8 +201,8 @@ test("autosaves unfinished fields but blocks approval until errors are corrected
 
 test("navigation saves pending changes and the dashboard requires approval", async ({ page }) => {
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: "Approve your profile first" })).toBeVisible();
-  await page.getByRole("link", { name: "Review profile", exact: true }).click();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Start from scratch" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Pending Navigation");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Privacy & data" }).click();

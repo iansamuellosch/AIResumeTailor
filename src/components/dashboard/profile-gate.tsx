@@ -1,28 +1,23 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { getDatabase, readProfile } from "@/lib/storage/database";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useApprovedProfile } from "@/hooks/use-approved-profile";
 import { GenerationForm } from "./generation-form";
-import type { ProfessionalProfile } from "@/schemas/profile";
+import { ResumeHistory } from "./resume-history";
 
 export function ProfileGate() {
-  const [profile, setProfile] = useState<ProfessionalProfile>();
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState("");
+  const { profile, loaded, error } = useApprovedProfile();
+  const router = useRouter();
   useEffect(() => {
-    let active = true;
-    void readProfile(getDatabase(), "verified").then((value) => { if (active) { setProfile(value); setLoaded(true); } }).catch((cause: unknown) => {
-      if (active) { setLoaded(true); setError(cause instanceof Error ? cause.message : "Could not read your approved profile."); }
-    });
-    return () => { active = false; };
-  }, []);
-  if (!loaded) return <p>Checking your profile…</p>;
-  if (error) return <p role="alert" className="text-destructive">{error}</p>;
-  if (!profile) return <div className="space-y-4 rounded-xl border bg-card p-6">
-    <h2 className="text-lg font-semibold">Approve your profile first</h2>
-    <p className="text-sm leading-6 text-muted-foreground">Review and approve your professional information before using it to generate resumes. Unverified drafts cannot be used for tailoring.</p>
-    <Button asChild><Link href="/profile">Review profile</Link></Button>
+    if (loaded && !error && !profile) router.replace("/profile");
+  }, [loaded, error, profile, router]);
+  if (error) return <div className="space-y-3"><p role="alert" className="text-destructive">{error}</p><Link href="/profile" className="underline underline-offset-4">Go to Profile</Link></div>;
+  if (!profile) return <p role="status">{loaded ? "Opening your profile…" : "Checking your profile…"}</p>;
+  return <div className="max-w-4xl space-y-6">
+    <h1 className="text-3xl font-semibold tracking-tight">Your next opportunity</h1>
+    <p className="text-muted-foreground">Turn your experience into a resume for the role you want.</p>
+    <GenerationForm profile={profile} />
+    <ResumeHistory />
   </div>;
-  return <GenerationForm profile={profile} />;
 }

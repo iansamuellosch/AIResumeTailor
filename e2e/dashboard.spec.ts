@@ -269,3 +269,57 @@ test("edits resume text in place with stable caret, plain paste, multiline bulle
   await expect(page.getByRole("textbox", { name: "Professional summary", exact: true })).toHaveText("Refined React interfaces.");
   await expect(page.getByRole("textbox", { name: "Education 1: Graduation Date", exact: true })).toHaveText("Jun 2022");
 });
+
+test("redirects missing-profile visits but keeps saved resumes accessible", async ({ page, context }) => {
+  const input = await seedApprovedProfile(page);
+  const resume = assembleResume(input, selectEvidence(input.profile, input.jobAnalysis, input.settings), selection());
+  resume.validation = { status: "passed", checkedAt: new Date().toISOString(), issues: [] };
+  await page.goto("/dashboard");
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+  const other = await context.newPage(); await other.goto("/dashboard");
+  await expect(other.getByRole("heading", { name: "Your next opportunity" })).toBeVisible();
+  await page.evaluate(async ({ resume, sourceProfile }) => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open("ai-resume-tailor"); open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result; const tx = db.transaction(["profiles", "generatedResumes"], "readwrite");
+      tx.objectStore("generatedResumes").put({ id: resume.id, updatedAt: resume.updatedAt, content: resume, originalContent: resume, sourceProfile });
+      tx.objectStore("profiles").clear();
+      tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = () => reject(tx.error);
+    };
+  }), { resume, sourceProfile: input.profile });
+  await page.reload(); await other.reload();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(other).toHaveURL(/\/profile$/);
+  await expect(other.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Resume history" })).toBeVisible();
+  await page.getByRole("link", { name: "Open resume", exact: true }).click();
+  await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Example Co");
+  await page.getByRole("button", { name: "Edit resume", exact: true }).click();
+  await page.getByRole("textbox", { name: "Professional summary", exact: true }).fill("Owner updates without a saved profile.");
+  await page.getByRole("button", { name: "Save edits", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Download Word", exact: true })).toBeEnabled();
+  await other.close();
+});
+
+test("unlocks Dashboard only after Save & Continue and revokes it across tabs when data is cleared", async ({ page, context }) => {
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Start from scratch", exact: true }).click();
+  await page.getByLabel("Full name", { exact: true }).fill("Approval Test");
+  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
+  const other = await context.newPage(); await other.goto("/profile");
+  await expect(other.getByLabel("Full name", { exact: true })).toHaveValue("Approval Test");
+  await expect(other.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(other.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+  await other.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(other.getByRole("heading", { name: "Your next opportunity" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Privacy & data", exact: true }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete all local data", exact: true }).click();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(other).toHaveURL(/\/profile$/);
+  await expect(other.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
+  await other.close();
+});

@@ -5,11 +5,15 @@ test("navigation, browser storage, and foundation routes work", async ({ page },
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Overview" })).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Start with your resume");
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole("button", { name: "Upload resume", exact: true })).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath("upload-page.png"), fullPage: true });
   await page.getByRole("contentinfo").getByRole("link", { name: "Privacy details" }).click();
   await expect(page).toHaveURL(/\/settings#ai-processing$/);
   await expect(page.getByText("External AI processing", { exact: true })).toBeVisible();
-  for (const [label, heading] of [["Profile", "Start with your resume"], ["Dashboard", "Your next opportunity"], ["Privacy & data", "Privacy & data"]]) {
+  for (const [label, heading] of [["Profile", "Start with your resume"], ["Privacy & data", "Privacy & data"]]) {
     await page.getByRole("navigation").getByRole("link", { name: label }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
     await expect(page.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");

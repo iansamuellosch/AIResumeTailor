@@ -1,14 +1,27 @@
-import { render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
-import { Navigation } from "@/components/layout/navigation";
+import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ usePathname: () => "/profile" }));
-it("provides all primary routes and identifies the active page", () => {
+vi.mock("@/lib/storage/database", async (original) => ({ ...await original<typeof import("@/lib/storage/database")>(), getDatabase: vi.fn() }));
+import { Navigation } from "@/components/layout/navigation";
+import { ResumeDatabase, getDatabase, saveProfile } from "@/lib/storage/database";
+import { tailoringInput } from "./fixtures/tailoring";
+let db: ResumeDatabase;
+beforeEach(() => { db = new ResumeDatabase(`navigation-${crypto.randomUUID()}`); vi.mocked(getDatabase).mockReturnValue(db); });
+afterEach(async () => { vi.restoreAllMocks(); await db.delete(); });
+it("keeps primary routes and active state while hiding Dashboard until approval", async () => {
   render(<Navigation />);
   expect(screen.queryByRole("link", { name: "Overview" })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "AI Resume Tailor" })).toHaveAttribute("href", "/profile");
-  expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("aria-current", "page");
-  for (const [name, href] of [["Profile", "/profile"], ["Dashboard", "/dashboard"], ["Privacy & data", "/settings"]]) {
-    expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
-  }
+  expect(screen.getByRole("link", { name: "Privacy & data" })).toHaveAttribute("href", "/settings");
+  expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+  const profile = tailoringInput().profile;
+  await saveProfile(db, { ...profile, status: "draft", verifiedAt: undefined });
+  expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+  await saveProfile(db, profile);
+  expect(await screen.findByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
+  await saveProfile(db, { ...profile, status: "draft", summary: "Unfinished edits.", verifiedAt: undefined });
+  expect(screen.getByRole("link", { name: "Dashboard" })).toBeVisible();
+  await db.profiles.clear();
+  await waitFor(() => expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument());
 });
