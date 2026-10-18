@@ -1,3 +1,4 @@
+import { expectDraftValue } from "./helpers/profiles";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { tailoringInput, selection } from "../tests/fixtures/tailoring";
@@ -306,7 +307,7 @@ test("unlocks Dashboard only after Save & Continue and revokes it across tabs wh
   await page.goto("/profile");
   await page.getByRole("button", { name: "Start from scratch", exact: true }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Approval Test");
-  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
+  await expectDraftValue(page, "personalInfo.fullName", "Approval Test");
   const other = await context.newPage(); await other.goto("/profile");
   await expect(other.getByLabel("Full name", { exact: true })).toHaveValue("Approval Test");
   await expect(other.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);

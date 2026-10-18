@@ -39,7 +39,7 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
     setSaved(resume); setPending(undefined);
   }
   async function review(resume: GeneratedResume) {
-    if (!sourceProfile.current) throw new Error("The approved source profile is unavailable.");
+    if (!sourceProfile.current) throw new Error("The saved source profile is unavailable.");
     setStage("Validating facts and correcting unsupported wording");
     const reviewed = await requestResumeValidation(sourceProfile.current, resume, true, controller.current?.signal, reviewPermit.current);
     pendingReviewSave.current = resume.updatedAt;
@@ -61,7 +61,7 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
     setBusy(true); setError(""); setSaved(undefined);
     try {
       const approved = await readProfile(getDatabase(), "verified");
-      if (!approved) throw new Error("Approve your profile before generating a resume.");
+      if (!approved) throw new Error("Select Save & Continue on your profile before generating a resume.");
       sourceProfile.current = approved;
       pendingReviewSave.current = undefined;
       const result = await requestTailoredResume(approved, input, setStage, controller.current.signal);
@@ -83,10 +83,10 @@ export function GenerationForm({ profile }: { profile: ProfessionalProfile }) {
   const errors = form.formState.errors;
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 text-sm">
-      <div><h2 className="font-semibold">Your profile is ready</h2><p>{profile.personalInfo.fullName} · Approved profile version {profile.version}</p><p className="mt-1 text-muted-foreground">{profile.experience.length} employment entries · {profile.projects.length} projects · {profile.skills.length} skills · {factCount} supporting facts</p>
+      <div><h2 className="font-semibold">Your profile is ready</h2><p>{profile.personalInfo.fullName} · Saved profile version {profile.version}</p><p className="mt-1 text-muted-foreground">{profile.experience.length} employment entries · {profile.projects.length} projects · {profile.skills.length} skills · {factCount} supporting facts</p>
         {factCount < 4 && <p className="mt-2 max-w-xl">Your profile has little detailed evidence. Add missing responsibilities, achievements, and outcomes before generating if the original resume contains more detail.</p>}
       </div>
-      <Link href="/profile" className="font-medium underline underline-offset-4">Edit approved profile</Link>
+      <Link href="/profile" className="font-medium underline underline-offset-4">Edit saved profile</Link>
     </div>
     <form onSubmit={(event) => void form.handleSubmit(generate)(event)} className="space-y-6">
       <Card><CardContent className="space-y-5">

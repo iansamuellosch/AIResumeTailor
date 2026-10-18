@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   return withAiDebug(async () => {
     try {
       const input = validateResumeRequestSchema.safeParse(await readLimitedJson(request));
-      if (!input.success) throw new ApiError(400, "INVALID_REQUEST", "Provide a valid resume and its approved source profile.");
+      if (!input.success) throw new ApiError(400, "INVALID_REQUEST", "Provide a valid resume and its saved source profile.");
       await enforceResumeReview(request, input.data.resume, input.data.reviewPermit);
       const resume = await validateResumeWithGemini(input.data, request.signal);
       return Response.json({ success: true, data: { resume } }, { headers: { "Cache-Control": "no-store" } });

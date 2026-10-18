@@ -39,8 +39,8 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
   }, []);
 
   function confirmReplacement(): boolean {
-    if (draft) return window.confirm("Replace your current unverified draft with a new draft? Your approved profile and original files will be kept.");
-    if (verified) return window.confirm("Parse a replacement resume into a new draft? Your approved profile will remain unchanged until you review and approve it.");
+    if (draft) return window.confirm("Replace your unfinished profile edits with a new draft? Your saved profile and original files will be kept.");
+    if (verified) return window.confirm("Parse a replacement resume into a new draft? Your saved profile will remain unchanged until you review it and select Save & Continue.");
     return true;
   }
 

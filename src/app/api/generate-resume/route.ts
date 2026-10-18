@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   return withAiDebug(async () => {
     try {
       const input = tailorResumeRequestSchema.safeParse(await readLimitedJson(request));
-      if (!input.success) throw new ApiError(400, "INVALID_REQUEST", "Provide an approved profile, job description, and resume settings. Large profiles may exceed the request limit.");
+      if (!input.success) throw new ApiError(400, "INVALID_REQUEST", "Provide a saved profile, job description, and resume settings. Large profiles may exceed the request limit.");
       const admission = await reserveTailoringRun(request);
       const resume = await generateResumeWithGemini(input.data, request.signal);
       // Preserve a completed draft even if Redis becomes unavailable after writing.

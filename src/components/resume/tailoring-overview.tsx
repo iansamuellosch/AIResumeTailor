@@ -10,7 +10,7 @@ export function TailoringOverview({ resume, profile }: { resume: GeneratedResume
     <p className="text-sm">{resume.experience.length} of {profile.experience.length} employment entries · {resume.skills.length} of {profile.skills.length} skills · {usedFacts.size} of {sourceFacts.size} employment/project facts cited in bullets</p>
     <p className="text-sm text-muted-foreground">Selection counts show what was retained, not a quality or ATS score. Check that your strongest relevant accomplishments are included.</p>
     <details className="text-sm"><summary className="cursor-pointer font-medium">Compare the professional summary</summary>
-      <div className="mt-3 space-y-3"><p><strong>Approved profile:</strong> {profile.summary || "No original summary."}</p><p><strong>This resume:</strong> {resume.summary || "No summary."}</p></div>
+      <div className="mt-3 space-y-3"><p><strong>Saved profile:</strong> {profile.summary || "No original summary."}</p><p><strong>This resume:</strong> {resume.summary || "No summary."}</p></div>
     </details>
   </section>;
 }

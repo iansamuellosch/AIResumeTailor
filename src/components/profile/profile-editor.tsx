@@ -73,7 +73,7 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
           openSection(sectionForPath(first));
           requestAnimationFrame(() => form.setFocus(first));
         }
-      } else setApprovalError(cause instanceof Error ? cause.message : "Could not approve your profile. Existing data has been preserved.");
+      } else setApprovalError(cause instanceof Error ? cause.message : "Could not save your profile. Existing data has been preserved.");
     }
   }
 
@@ -109,7 +109,7 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
   return <FormProvider {...form}>
     <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="max-w-3xl space-y-3">
-        <div className="flex flex-wrap items-center gap-3"><h1 className="text-3xl font-semibold tracking-tight">Your professional profile</h1><Badge variant="secondary">{approvedUnchanged ? "Approved profile" : "Draft profile"}</Badge></div>
+        <div className="flex flex-wrap items-center gap-3"><h1 className="text-3xl font-semibold tracking-tight">Your professional profile</h1><Badge variant="secondary">{approvedUnchanged ? "Saved profile" : "Draft profile"}</Badge></div>
         <p className="leading-7 text-muted-foreground">Review and maintain your professional information.</p>
       </div>
       <div role="group" aria-label="Profile actions" className="flex shrink-0 items-center gap-2">
@@ -151,14 +151,13 @@ function EditorForm({ session, onReplace }: { session: EditorSession; onReplace?
             </div>
           </details>)}
         </fieldset>
-        {approvalError && <p role="alert" aria-label="Profile approval error" className="text-sm leading-6 text-destructive">{approvalError}</p>}
+        {approvalError && <p role="alert" aria-label="Profile save error" className="text-sm leading-6 text-destructive">{approvalError}</p>}
         {navigationError && <p role="alert" className="text-sm text-destructive">{navigationError}</p>}
         {persistence.error && <p role="alert" aria-label="Profile storage error" className="text-sm text-destructive">{persistence.error}</p>}
         {persistence.conflict && <Button type="button" variant="outline" onClick={() => { if (window.confirm("Reload and discard unsaved edits on this page?")) window.location.reload(); }}>Reload saved profile</Button>}
         <div className="flex flex-wrap items-center gap-3 border-t pt-5">
           {persistence.error && !persistence.conflict && <Button type="button" variant="outline" disabled={disabled} onClick={() => void saveDraft()}>{saving ? "Saving…" : "Retry saving"}</Button>}
-          <Button type="button" disabled={disabled || persistence.conflict} onClick={() => void approve()}>{persistence.busy ? "Approving…" : "Save & Continue"}</Button>
-          <span role="status" aria-label="Profile save status" className="text-xs text-muted-foreground sm:ml-auto">{disabled ? "Saving…" : persistence.status}</span>
+          <Button type="button" disabled={disabled || persistence.conflict} onClick={() => void approve()}>{persistence.busy ? "Saving…" : "Save & Continue"}</Button>
         </div>
       </form>
     </div>

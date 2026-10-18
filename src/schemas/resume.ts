@@ -16,7 +16,7 @@ export const dashboardInputSchema = analyzeJobRequestSchema.extend({
   notes: z.string().trim().max(2000, "Keep your notes to 2,000 characters or fewer."), settings: resumeSettingsSchema,
 });
 export const generateResumeRequestSchema = z.object({
-  profile: professionalProfileSchema.refine((value) => value.status === "verified", "Approve your profile before generating a resume."),
+  profile: professionalProfileSchema.refine((value) => value.status === "verified", "Select Save & Continue on your profile before generating a resume."),
   jobAnalysis: jobAnalysisSchema, settings: resumeSettingsSchema,
   notes: z.string().trim().max(2000).default(""),
   jobUrl: dashboardInputSchema.shape.jobUrl.default(""),

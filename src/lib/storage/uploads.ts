@@ -27,7 +27,7 @@ export async function readLatestDocument(db: ResumeDatabase): Promise<UploadedDo
 /** Commit only to the draft store, and refuse to overwrite edits made in another tab. */
 export async function saveUploadDraft(db: ResumeDatabase, input: unknown, expectedSnapshot: string | undefined, sourceDocumentId?: string): Promise<ProfessionalProfile> {
   const candidate = professionalProfileSchema.parse(input);
-  if (candidate.status !== "draft") throw new Error("Only an unverified draft can be saved from an upload.");
+  if (candidate.status !== "draft") throw new Error("Only a profile draft can be created from an upload.");
   try {
     return await db.transaction("rw", db.profiles, db.profileDrafts, async () => {
       const current = await db.profileDrafts.get("primary");

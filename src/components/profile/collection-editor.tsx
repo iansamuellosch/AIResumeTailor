@@ -34,7 +34,7 @@ export function CollectionEditor({ config }: { config: CollectionDefinition }) {
       <EntryFields config={config} index={index} />
       <div className="flex flex-wrap gap-2 border-t pt-4">
         <RemoveButton aria-label={`Delete ${config.singular} ${index + 1}`} onClick={() => {
-          if (window.confirm(`Delete this ${config.singular} and its facts from your draft? Your approved profile stays unchanged until you approve the draft.`)) remove(index);
+          if (window.confirm(`Delete this ${config.singular} and its facts from your draft? Your saved profile stays unchanged until you select Save & Continue.`)) remove(index);
         }}>Delete entry</RemoveButton>
       </div>
     </fieldset>)}

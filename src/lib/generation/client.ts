@@ -26,7 +26,7 @@ export async function requestTailoredResume(profile: ProfessionalProfile, input:
   progress("Analyzing job and generating resume");
   const { data } = await post("/api/generate-resume", { ...input, profile }, z.object({ success: z.literal(true), data: z.object({ resume: generatedResumeSchema, reviewPermit: z.string().max(4096).optional() }) }), signal, 105_000);
   if (signal?.aborted) throw new Error("Generation cancelled. Your saved data is preserved.");
-  if (data.resume.profileId !== profile.id || data.resume.profileVersion !== profile.version) throw new Error("The resume does not match your approved profile. Try again.");
+  if (data.resume.profileId !== profile.id || data.resume.profileVersion !== profile.version) throw new Error("The resume does not match your saved profile. Try again.");
   if (data.resume.qualityWarnings?.length) console.warn("[Gemini] Resume quality warnings", data.resume.qualityWarnings);
   return data;
 }

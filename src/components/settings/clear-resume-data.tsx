@@ -9,7 +9,7 @@ export function ClearResumeData() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function clear() {
-    if (!window.confirm("Delete all uploaded resumes, profile drafts, your approved profile, saved resumes, and settings from this browser? This cannot be undone.")) return;
+    if (!window.confirm("Delete all uploaded resumes, profile drafts, your saved profile, saved resumes, and settings from this browser? This cannot be undone.")) return;
     setBusy(true); setError("");
     try {
       await deleteAllLocalData(getDatabase());
@@ -24,7 +24,7 @@ export function ClearResumeData() {
   return <Card>
     <CardHeader><CardTitle>Delete all local data</CardTitle></CardHeader>
     <CardContent className="space-y-4">
-      <p className="text-sm leading-6 text-muted-foreground">Remove uploaded files, profile drafts, your approved profile, saved resumes, and application settings from this browser. This cannot be undone.</p>
+      <p className="text-sm leading-6 text-muted-foreground">Remove uploaded files, profile drafts, your saved profile, saved resumes, and application settings from this browser. This cannot be undone.</p>
       <Button variant="destructive" disabled={busy} onClick={() => void clear()}>{busy ? "Clearing…" : "Delete all local data"}</Button>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </CardContent>

@@ -20,7 +20,7 @@ export function LocalData() {
   async function importFile(file: File) {
     if (file.size > MAX_PROFILE_IMPORT_BYTES) throw new Error("Profile imports are limited to 2 MB.");
     const profile = parseProfileImport(await file.text()); const db = getDatabase(); const revision = await readImportRevision(db);
-    if ((revision.draft || revision.verified) && !window.confirm("Restore this profile backup? It will replace your unfinished profile. Your approved profile stays unchanged until you review and approve the restored information.")) return;
+    if ((revision.draft || revision.verified) && !window.confirm("Restore this profile backup? It will replace your unfinished profile. Your saved profile stays unchanged until you review the restored information and select Save & Continue.")) return;
     await importProfileDraft(db, profile, revision);
     // Full reload ensures any cached editor state reflects the imported draft.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Import needs a fresh local editor session.
@@ -29,9 +29,9 @@ export function LocalData() {
   return <>
     <Card><CardHeader><CardTitle>Back up or restore your profile</CardTitle></CardHeader><CardContent className="space-y-5">
       <p className="text-sm leading-6 text-muted-foreground">Download a copy of your profile to keep it safe or move it to another browser. Backups include profile information only, not uploaded files or generated resumes.</p>
-      <p className="text-sm leading-6 text-muted-foreground">Your backup includes your approved profile and any unfinished edits saved in this browser.</p>
+      <p className="text-sm leading-6 text-muted-foreground">Your backup includes your saved profile and any unfinished edits saved in this browser.</p>
       <Button disabled={busy} variant="outline" onClick={() => void run(backup)}>Download profile backup</Button>
-      <div className="border-t pt-4"><label htmlFor="profile-import" className="block text-sm font-medium">Restore a profile backup</label><p id="profile-import-help" className="mb-3 mt-1 text-sm leading-6 text-muted-foreground">Choose a backup file (.json), up to 2 MB. Your unfinished edits are restored first when available. Review the restored information on the Profile page before approving it.</p><input id="profile-import" type="file" accept=".json,application/json" disabled={busy} aria-describedby="profile-import-help" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void run(() => importFile(file)); }} className="block w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:font-medium" /></div>
+      <div className="border-t pt-4"><label htmlFor="profile-import" className="block text-sm font-medium">Restore a profile backup</label><p id="profile-import-help" className="mb-3 mt-1 text-sm leading-6 text-muted-foreground">Choose a backup file (.json), up to 2 MB. Your unfinished edits are restored first when available. Review the restored information on the Profile page then select Save & Continue.</p><input id="profile-import" type="file" accept=".json,application/json" disabled={busy} aria-describedby="profile-import-help" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void run(() => importFile(file)); }} className="block w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:font-medium" /></div>
     </CardContent></Card>
     <Card><CardHeader><CardTitle>Delete selected data</CardTitle></CardHeader><CardContent className="divide-y">
       <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">

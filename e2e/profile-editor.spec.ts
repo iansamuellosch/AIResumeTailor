@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import type { ProfessionalProfile } from "../src/schemas/profile";
+import { readProfiles, expectDraftValue } from "./helpers/profiles";
 
 async function openProfile(page: Page) {
   await page.goto("/profile");
@@ -13,23 +13,6 @@ async function openSection(page: Page, name: string) {
   await expect(jump).toBeAttached();
   if (await jump.isVisible()) await jump.click();
   await page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", { name: new RegExp(`^${name}`) }).click();
-}
-async function saved(page: Page) {
-  await expect(page.getByRole("status", { name: "Profile save status" })).toHaveText("Saved");
-}
-async function readProfiles(page: Page) {
-  return page.evaluate(async () => new Promise<{ draft?: ProfessionalProfile; verified?: ProfessionalProfile }>((resolve, reject) => {
-    const open = indexedDB.open("ai-resume-tailor");
-    open.onerror = () => reject(open.error);
-    open.onsuccess = () => {
-      const db = open.result;
-      const transaction = db.transaction(["profiles", "profileDrafts"]);
-      const approved = transaction.objectStore("profiles").get("primary");
-      const draft = transaction.objectStore("profileDrafts").get("primary");
-      transaction.oncomplete = () => { db.close(); resolve({ draft: draft.result?.profile, verified: approved.result?.profile }); };
-      transaction.onerror = () => reject(transaction.error);
-    };
-  }));
 }
 
 test("employment facts keep their IDs across edits, removal, and approval without reorder controls", async ({ page }) => {
@@ -52,14 +35,14 @@ test("employment facts keep their IDs across edits, removal, and approval withou
   await second.getByLabel("Job title", { exact: true }).fill("Developer");
   await second.getByRole("button", { name: "Add responsibility", exact: true }).click();
   await second.getByLabel("Responsibility 1", { exact: true }).fill("Built a web interface.");
-  await saved(page);
+  await expectDraftValue(page, "experience.1.responsibilities.0.text", "Built a web interface.");
   const before = (await readProfiles(page)).draft!;
   await expect(page.getByRole("button", { name: /Move .* (up|down)/ })).toHaveCount(0);
   await first.getByLabel("Responsibility 1", { exact: true }).fill("Integrated REST APIs into production React applications.");
   await first.getByRole("button", { name: "Add responsibility", exact: true }).click();
   await first.getByLabel("Responsibility 2", { exact: true }).fill("Maintained application components.");
   await first.getByRole("button", { name: "Remove responsibility 2", exact: true }).click();
-  await saved(page);
+  await expectDraftValue(page, "experience.0.responsibilities", [{ ...before.experience[0].responsibilities[0], text: "Integrated REST APIs into production React applications." }]);
   const after = (await readProfiles(page)).draft!;
   expect(after.experience.map((entry) => entry.id)).toEqual([before.experience[0].id, before.experience[1].id]);
   expect(after.experience[0].responsibilities[0].id).toBe(before.experience[0].responsibilities[0].id);
@@ -72,10 +55,10 @@ test("employment facts keep their IDs across edits, removal, and approval withou
   expect(approved.status).toBe("verified");
   expect(approved.verifiedAt).toBeTruthy();
   expect((await readProfiles(page)).draft).toBeUndefined();
-  await page.getByRole("link", { name: "Edit approved profile" }).click();
+  await page.getByRole("link", { name: "Edit saved profile" }).click();
   await openSection(page, "Work experience");
   await first.getByLabel("Employer", { exact: true }).fill("Company A corrected");
-  await saved(page);
+  await expectDraftValue(page, "experience.0.employer", "Company A corrected");
   expect((await readProfiles(page)).verified).toEqual(approved);
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
@@ -132,7 +115,7 @@ test("all optional profile sections can be added, saved, reopened, and removed",
     await page.getByRole("button", { name: button, exact: true }).click();
     await page.getByLabel(label, { exact: true }).fill(value);
   }
-  await saved(page);
+  await expectDraftValue(page, "additionalAccomplishments.0.text", "Presented at an internal team workshop.");
   const before = (await readProfiles(page)).draft!;
   for (const key of ["education", "skills", "projects", "certifications", "awards", "publications", "volunteerExperience", "memberships", "languages", "additionalAccomplishments"] as const) expect(before[key]).toHaveLength(1);
   expect(before.skills[0].proficiency).toBeUndefined();
@@ -145,7 +128,7 @@ test("all optional profile sections can be added, saved, reopened, and removed",
   await page.getByRole("button", { name: "Delete language 1", exact: true }).click();
   await expect(page.getByRole("button", { name: "Delete language 1", exact: true })).toHaveCount(0);
   await expect.poll(async () => (await readProfiles(page)).draft?.languages.length).toBe(0);
-  await saved(page);
+
   const after = (await readProfiles(page)).draft!;
   expect(after.languages).toHaveLength(0);
   expect(after.projects[0].id).toBe(before.projects[0].id);
@@ -171,14 +154,14 @@ test("autosaves unfinished fields but blocks approval until errors are corrected
   await page.getByLabel(/^Start date/).fill("2025-01");
   await page.getByLabel(/^End date/).fill("2024-01");
   await page.getByRole("button", { name: "Add achievement", exact: true }).click();
-  await saved(page);
+  await expectDraftValue(page, "experience.0.achievements.length", 1);
   const draft = (await readProfiles(page)).draft!;
   expect(draft.personalInfo.email).toBe("unfinished@");
   expect(draft.experience[0].employer).toBe("");
   await page.reload();
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("unfinished@");
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click();
-  await expect(page.getByRole("alert", { name: "Profile approval error" })).toContainText("correct the highlighted fields");
+  await expect(page.getByRole("alert", { name: "Profile save error" })).toContainText("correct the highlighted fields");
   await expect(page.getByLabel("Email", { exact: true })).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByText("Enter a valid email address, such as name@example.com.", { exact: true })).toBeVisible();
   await expect(page.getByText("Enter the employer.", { exact: true })).toBeAttached();
@@ -217,7 +200,7 @@ test("detects changes from a second tab without overwriting them", async ({ page
   const other = await context.newPage();
   await other.goto("/profile");
   await other.getByLabel("Full name", { exact: true }).fill("Newer Tab Edit");
-  await saved(other);
+  await expectDraftValue(other, "personalInfo.fullName", "Newer Tab Edit");
   await page.getByLabel("Full name", { exact: true }).fill("Stale Tab Edit");
   await expect(page.getByRole("alert", { name: "Profile storage error" })).toContainText("changed in another tab");
   await expect(page.getByRole("button", { name: "Save & Continue", exact: true })).toBeDisabled();
@@ -238,11 +221,11 @@ test("compact technology inputs and searchable categories preserve edits and sup
   await page.getByLabel("Technology 1", { exact: true }).fill("Microsoft Excel");
   await page.getByRole("button", { name: "Add technology", exact: true }).click();
   await page.getByLabel("Technology 2", { exact: true }).fill("Salesforce");
-  await saved(page);
+  await expectDraftValue(page, "experience.0.technologies.1.text", "Salesforce");
   const before = (await readProfiles(page)).draft!;
   await page.getByRole("button", { name: "Remove technology 1", exact: true }).click();
   await expect(page.getByLabel("Technology 1", { exact: true })).toHaveValue("Salesforce");
-  await saved(page);
+  await expectDraftValue(page, "experience.0.technologies.length", 1);
   await expect.poll(async () => (await readProfiles(page)).draft!.experience[0].technologies[0].id).toBe(before.experience[0].technologies[1].id);
   await openSection(page, "Skills");
   await page.getByRole("button", { name: "Add skill", exact: true }).click();
@@ -261,7 +244,7 @@ test("compact technology inputs and searchable categories preserve edits and sup
   await expect(page.getByText("No matching categories.")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("Category", { exact: true })).toHaveText("Finance & accounting");
-  await saved(page);
+  await expectDraftValue(page, "skills.0.category", "finance-accounting");
   const stored = (await readProfiles(page)).draft!;
   expect(stored.skills[0].category).toBe("finance-accounting");
   expect(stored.skills[0].supportingContext).toBe("Monthly reporting and budget tracking");

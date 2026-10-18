@@ -13,14 +13,14 @@ export function inspectResume(profile: ProfessionalProfile, resume: GeneratedRes
   const issues: ValidationIssue[] = []; const claims: Claim[] = []; const ids = new Set<string>();
   function issue(fieldPath: string, message: string, evidenceIds: string[] = []) { issues.push({ id: crypto.randomUUID(), severity: "error", fieldPath, message, evidenceIds }); }
   function unique(id: string, path: string) { if (ids.has(id)) issue(path, "Duplicate resume identifier."); ids.add(id); }
-  function exact(value: unknown, source: unknown, path: string) { if (!equal(value, source)) issue(path, "This value does not match the approved source profile. Update and approve your profile to change professional facts."); }
+  function exact(value: unknown, source: unknown, path: string) { if (!equal(value, source)) issue(path, "This value does not match the saved source profile. Update your profile and select Save & Continue to change professional facts."); }
   function claim(fieldPath: string, text: string, evidence: Claim["evidence"], context?: Claim["context"]) {
     if (!text) return;
     const allowedNumbers = new Set(numericTokens(evidence.map((fact) => fact.text).join(" ")));
     if (numericTokens(text).some((number) => !allowedNumbers.has(number))) issue(fieldPath, "This text contains a number not supported by its evidence.", evidence.map((fact) => fact.id));
     claims.push({ fieldPath, text, evidence, context });
   }
-  if (profile.status !== "verified" || profile.id !== resume.profileId || profile.version !== resume.profileVersion) issue("profileVersion", "The approved source profile does not match this resume's profile ID and version.");
+  if (profile.status !== "verified" || profile.id !== resume.profileId || profile.version !== resume.profileVersion) issue("profileVersion", "The saved source profile does not match this resume's profile ID and version.");
   exact(resume.contact, profile.personalInfo, "contact");
   // Free-form summaries may draw on verified professional facts, never contact details or the job requirements.
   const summaryEvidence = [
@@ -35,7 +35,7 @@ export function inspectResume(profile: ProfessionalProfile, resume: GeneratedRes
   for (const section of ["experience", "projects"] as const) resume[section].forEach((entry, i) => {
     const path = `${section}.${i}`; unique(entry.sourceId, `${path}.sourceId`);
     const source = profile[section].find((item) => item.id === entry.sourceId);
-    if (!source) { issue(`${path}.sourceId`, "This entry is not present in the approved source section."); return; }
+    if (!source) { issue(`${path}.sourceId`, "This entry is not present in the saved source section."); return; }
     const keys = section === "experience" ? ["employer", "jobTitle", "location", "startDate", "endDate", "currentlyEmployed"] : ["name", "role", "projectUrl", "repositoryUrl", "startDate", "endDate"];
     for (const key of keys) exact((entry as unknown as Record<string, unknown>)[key], (source as unknown as Record<string, unknown>)[key], `${path}.${key}`);
     const context: Claim["context"] = { section, name: "employer" in source ? source.employer : source.name, role: "jobTitle" in source ? source.jobTitle : source.role };
@@ -51,7 +51,7 @@ export function inspectResume(profile: ProfessionalProfile, resume: GeneratedRes
   for (const section of ["skills", "education", "certifications"] as const) resume[section].forEach((entry, i) => {
     unique(entry.id, `${section}.${i}.id`);
     const source = profile[section].find((item) => item.id === entry.id);
-    if (!source) issue(`${section}.${i}`, "This item is not present in the approved source profile.");
+    if (!source) issue(`${section}.${i}`, "This item is not present in the saved source profile.");
     else exact(entry, source, `${section}.${i}`);
   });
   return { issues, claims };
