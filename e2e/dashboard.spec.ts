@@ -114,7 +114,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await expect(history.getByRole("link", { name: "Open resume" })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await history.getByRole("button", { name: "Delete resume", exact: true }).click();
-  await expect(history.getByText("No saved resumes yet.")).toBeVisible();
+  await expect(history).toHaveCount(0);
 });
 
 test("combined writing failure preserves input and allows a new attempt", async ({ page }) => {
