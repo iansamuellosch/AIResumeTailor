@@ -16,6 +16,7 @@ import { ExportControls } from "./export-controls";
 import { ResumeDocument } from "./resume-document";
 import { ResumeEditor } from "./resume-editor";
 import { EvidencePanel } from "./evidence-panel";
+import { TailoringOverview } from "./tailoring-overview";
 import { QualityWarnings } from "./quality-warnings";
 
 export function SavedResume({ id }: { id: string }) {
@@ -148,6 +149,9 @@ export function SavedResume({ id }: { id: string }) {
       </aside>
     </div>
     {!!resume.qualityWarnings?.length && <details className="rounded-xl border bg-card p-4"><summary className="cursor-pointer font-semibold">Quality suggestions ({resume.qualityWarnings.length})</summary><div className="mt-4"><QualityWarnings warnings={resume.qualityWarnings} /></div></details>}
-    <EvidencePanel resume={resume} profile={record?.sourceProfile} />
+    <details className="rounded-xl border bg-card p-5"><summary className="cursor-pointer font-semibold">How this resume uses your profile</summary><div className="mt-4 space-y-5">
+      <TailoringOverview resume={resume} profile={record?.sourceProfile} />
+      <EvidencePanel resume={resume} profile={record?.sourceProfile} />
+    </div></details>
   </div>;
 }
