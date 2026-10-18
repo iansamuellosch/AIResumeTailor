@@ -91,7 +91,7 @@ export function ResumeUpload({ onComplete, onCancel }: { onComplete?: () => void
           if (event.dataTransfer.files.length !== 1) { setError("Choose one resume at a time."); return; }
           void processUpload(event.dataTransfer.files[0]);
         }}
-        className={`flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition-colors motion-reduce:transition-none ${dragging ? "border-primary bg-blue-50" : disabled ? "border-slate-300 bg-card" : "border-slate-300 bg-card hover:border-primary/60 hover:bg-blue-50/40 focus-within:border-primary/60 focus-within:bg-blue-50/40"}`}
+        className={`flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition-colors motion-reduce:transition-none ${dragging ? "border-primary bg-blue-50 dark:bg-secondary" : disabled ? "border-slate-300 bg-card dark:border-input" : "border-slate-300 bg-card dark:border-input dark:hover:border-primary/60 dark:hover:bg-accent/40 dark:focus-within:border-primary/60 dark:focus-within:bg-accent/40 hover:border-primary/60 hover:bg-blue-50/40 focus-within:border-primary/60 focus-within:bg-blue-50/40"}`}
         aria-busy={!!busy}
       >
         <Button id="upload-title" size="lg" className="h-11 px-6 text-base" disabled={disabled} aria-describedby="upload-formats footer-tagline" onClick={() => input.current?.click()}>{verified ? "Upload replacement" : "Upload resume"}</Button>

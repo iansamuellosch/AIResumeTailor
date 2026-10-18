@@ -6,8 +6,8 @@ import { Navigation } from "@/components/layout/navigation";
 import { ResumeDatabase, getDatabase, saveProfile } from "@/lib/storage/database";
 import { tailoringInput } from "./fixtures/tailoring";
 let db: ResumeDatabase;
-beforeEach(() => { db = new ResumeDatabase(`navigation-${crypto.randomUUID()}`); vi.mocked(getDatabase).mockReturnValue(db); });
-afterEach(async () => { vi.restoreAllMocks(); await db.delete(); });
+beforeEach(() => { vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }))); db = new ResumeDatabase(`navigation-${crypto.randomUUID()}`); vi.mocked(getDatabase).mockReturnValue(db); });
+afterEach(async () => { vi.unstubAllGlobals(); vi.restoreAllMocks(); await db.delete(); });
 it("keeps primary routes and active state while hiding Dashboard until approval", async () => {
   render(<Navigation />);
   expect(screen.queryByRole("link", { name: "Overview" })).not.toBeInTheDocument();

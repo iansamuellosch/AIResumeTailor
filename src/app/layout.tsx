@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Navigation } from "@/components/layout/navigation";
 import { StorageStatus } from "@/components/layout/storage-status";
+import { THEME_INIT_SCRIPT } from "@/lib/theme/preference";
 import "./globals.css";
 export const metadata: Metadata = { title: { default: "AI Resume Tailor", template: "%s | AI Resume Tailor" }, description: "Your experience. The right resume. A local-first resume workspace." };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body className="flex min-h-screen flex-col bg-background font-sans text-foreground antialiased">
+  return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head><body className="flex min-h-screen flex-col bg-background font-sans text-foreground antialiased">
     <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-card focus:p-4">Skip to content</a>
     <Navigation />
     <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8 sm:py-16"><StorageStatus />{children}</main>

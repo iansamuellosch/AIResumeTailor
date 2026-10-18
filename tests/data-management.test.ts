@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResumeDatabase, readProfile, saveProfile } from "@/lib/storage/database";
+import { THEME_STORAGE_KEY } from "@/lib/theme/preference";
 import { exportProfileBackup, parseProfileImport, readImportRevision, importProfileDraft, deleteUploadedDocuments, deleteSavedResumes, deleteAllLocalData } from "@/lib/storage/data-management";
 import { tailoringInput, savedResume } from "./fixtures/tailoring";
 import { saveGeneratedResume } from "@/lib/storage/resumes";
@@ -77,10 +78,13 @@ it("deletes uploads and pointers without deleting professional facts or resumes"
   await deleteSavedResumes(db); expect(await db.generatedResumes.count()).toBe(0); expect(await readProfile(db, "verified")).toEqual(profile);
 });
 it("rolls back failed deletions and deletes all local settings only for a complete wipe", async () => {
+  localStorage.setItem(THEME_STORAGE_KEY, "dark");
   await saveProfile(db, tailoringInput().profile); await db.settings.put({ key: "preference", value: true });
   vi.spyOn(db.uploadedDocuments, "clear").mockRejectedValueOnce(new Error("failure"));
   await expect(deleteAllLocalData(db)).rejects.toThrow("Existing data is preserved"); expect(await db.profiles.count()).toBe(1); expect(await db.settings.count()).toBe(1);
+  expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
   await deleteAllLocalData(db); for (const table of db.tables) expect(await table.count()).toBe(0);
+  expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
 });
 it("rolls back an imported draft when a later storage operation fails", async () => {
   const profile = tailoringInput().profile; await saveProfile(db, profile); const revision = await readImportRevision(db);

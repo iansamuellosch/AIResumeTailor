@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { THEME_STORAGE_KEY } from "@/lib/theme/preference";
 import { professionalProfileSchema, profileDraftSchema, type ProfessionalProfile } from "@/schemas/profile";
 import { LocalStorageError, storageErrorMessage, type ResumeDatabase } from "./database";
 import { draftSnapshot } from "./uploads";
@@ -73,4 +74,5 @@ export async function deleteSavedResumes(db: ResumeDatabase) {
 export async function deleteAllLocalData(db: ResumeDatabase) {
   try { await db.transaction("rw", db.tables, async () => { for (const table of [db.profiles, db.profileDrafts, db.uploadedDocuments, db.generatedResumes, db.settings]) await table.clear(); }); }
   catch (cause) { throw new LocalStorageError("Could not delete all local data. Existing data is preserved.", { cause }); }
+  try { if (typeof window !== "undefined") window.localStorage.removeItem(THEME_STORAGE_KEY); } catch { /* Preference storage can be blocked independently of IndexedDB. */ }
 }

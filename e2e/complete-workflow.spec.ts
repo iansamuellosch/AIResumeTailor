@@ -17,6 +17,7 @@ test(`${layout}: upload, approve, tailor, validate, edit, export both formats, a
   let reviewCalls = 0;
   await page.route("**/api/validate-resume", async (route) => { reviewCalls++; const { resume } = route.request().postDataJSON(); await route.fulfill({ json: { success: true, data: { resume: { ...resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } }); });
   await page.goto("/");
+  if (layout === "Modern") await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
   await expect(page.getByLabel("Choose a resume file")).toBeEnabled();
   await page.getByLabel("Choose a resume file").setInputFiles("e2e/fixtures/resume.pdf");
   await expect(page).toHaveURL(/\/profile$/, { timeout: 45000 });
@@ -33,6 +34,7 @@ test(`${layout}: upload, approve, tailor, validate, edit, export both formats, a
   await page.getByRole("button", { name: "Generate Tailored Resume" }).click();
   await page.getByRole("link", { name: "Open saved resume", exact: true }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Reviewed Example Company");
+  await expect(page.getByRole("article", { name: "Saved resume" })).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await page.getByRole("button", { name: "Edit resume", exact: true }).click();
   await page.getByLabel("Professional summary", { exact: true }).fill("Develops applications with React.");
   await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeDisabled();
