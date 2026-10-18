@@ -5,7 +5,7 @@ export function ResumeEditor({ resume, disabled, onChange }: { resume: Generated
   const fields = editableResumeFields(resume);
   const groups = [...new Set(fields.map((field) => field.group))];
   return <section aria-label="Resume text editor" className="space-y-3">
-    <p className="text-sm text-muted-foreground">Edits affect only this resume. Evidence references stay attached to their bullets. Change and approve your profile first to add or change professional facts.</p>
+    <p className="text-sm text-muted-foreground">Edit the wording for this resume. Your profile stays unchanged. Save your changes to return to the preview.</p>
     {groups.map((group) => <details key={group} open={group === "Summary"} className="rounded-xl border bg-card p-4"><summary className="cursor-pointer font-semibold">{group}</summary><div className="mt-4 grid gap-4 sm:grid-cols-2">
       {fields.filter((field) => field.group === group).map((field) => {
         const common = { id: `edit-${field.path}`, value: field.value, maxLength: 10000, disabled, className: "mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring", onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange({ ...replaceResumeText(resume, field.path, event.target.value), validation: pendingValidation() }) };

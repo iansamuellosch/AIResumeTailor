@@ -28,8 +28,10 @@ it("checks against the original approved snapshot even after the current profile
   await saveProfile(db, changedProfile);
   fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Develops applications with React." } });
   expect(screen.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
   vi.mocked(requestResumeValidation).mockImplementation(async (_source, current) => ({ ...current, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } }));
-  fireEvent.click(screen.getByRole("button", { name: "Check facts & save" }));
+  fireEvent.click(screen.getByRole("button", { name: "Check facts" }));
   await waitFor(() => expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Factual review saved"));
   expect(vi.mocked(requestResumeValidation).mock.calls[0][0]).toEqual(input.profile);
   expect(await readProfile(db, "verified")).toEqual(changedProfile);
@@ -37,17 +39,22 @@ it("checks against the original approved snapshot even after the current profile
   expect(record?.content.summary).toBe("Develops applications with React.");
   expect(record?.originalContent.summary).toBe(input.profile.summary);
 });
-it("keeps manual text for retry after a failed AI review", async () => {
+it("keeps saved edits in the preview when a fact check fails", async () => {
   const { resume } = await fixture();
-  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Text retained in this tab." } });
-  vi.mocked(requestResumeValidation).mockRejectedValue(new Error("AI review unavailable."));
-  fireEvent.click(screen.getByRole("button", { name: "Check facts & save" }));
-  expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("AI review unavailable");
-  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Text retained in this tab.");
-  expect((await readResumeRecord(db, resume.id))?.content.summary).toBe(resume.summary);
+  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Text retained after review fails." } });
+  expect(screen.queryByRole("article", { name: "Saved resume" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-  await waitFor(() => expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Changes saved locally"));
-  expect((await readResumeRecord(db, resume.id))?.content.validation.status).toBe("pending-semantic-review");
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
+  vi.mocked(requestResumeValidation).mockRejectedValue(new Error("AI review unavailable."));
+  fireEvent.click(screen.getByRole("button", { name: "Check facts" }));
+  expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("AI review unavailable");
+  expect(screen.getByRole("article", { name: "Saved resume" })).toHaveTextContent("Text retained after review fails.");
+  const record = await readResumeRecord(db, resume.id);
+  expect(record?.content.summary).toBe("Text retained after review fails.");
+  expect(record?.content.validation.status).toBe("pending-semantic-review");
+  expect(record?.originalContent.summary).toBe(resume.summary);
+  fireEvent.click(screen.getByRole("button", { name: "Edit resume" }));
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Text retained after review fails.");
 });
 it("blocks stale tab saves without discarding local text", async () => {
   const { resume } = await fixture();
@@ -60,7 +67,8 @@ it("blocks stale tab saves without discarding local text", async () => {
 });
 it("does not revalidate legacy resumes against a different source profile version", async () => {
   const { input } = await fixture(false); await saveProfile(db, { ...input.profile, version: 2 });
-  fireEvent.click(screen.getByRole("button", { name: "Check facts & save" }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
+  fireEvent.click(screen.getByRole("button", { name: "Recheck facts" }));
   expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("source profile for this resume is unavailable");
   expect(requestResumeValidation).not.toHaveBeenCalled();
 });
@@ -70,7 +78,7 @@ it("saves a layout while preserving unsaved text and its export guard without ca
   fireEvent.click(screen.getByRole("radio", { name: "Classic" }));
   await waitFor(async () => expect((await readResumeRecord(db, resume.id))?.content.settings.template).toBe("classic"));
   expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Unsaved text remains here.");
-  expect(screen.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Download PDF" })).toBeDisabled();
   expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Unsaved resume changes");
   const record = await readResumeRecord(db, resume.id);
   expect(record?.content.summary).toBe(resume.summary);
@@ -82,4 +90,47 @@ it("saves a layout while preserving unsaved text and its export guard without ca
   expect(saved?.content.summary).toBe("Unsaved text remains here.");
   expect(saved?.content.settings.template).toBe("classic");
   expect(saved?.content.validation.status).toBe("pending-semantic-review");
+});
+
+it("cancel confirms before discarding text, keeps the saved layout, and restores the preview", async () => {
+  const { resume } = await fixture();
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Unsaved edit." } });
+  fireEvent.click(screen.getByRole("radio", { name: "Compact" }));
+  await waitFor(async () => expect((await readResumeRecord(db, resume.id))?.content.settings.template).toBe("compact"));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Unsaved edit.");
+  confirm.mockReturnValue(true);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument();
+  expect(screen.getByRole("article", { name: "Saved resume" })).toHaveTextContent(resume.summary);
+  expect(screen.getByRole("radio", { name: "Compact" })).toBeChecked();
+  expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  confirm.mockRestore();
+});
+it("stays in the editor after a failed save and returns to preview after retry", async () => {
+  const { resume } = await fixture();
+  vi.spyOn(db.generatedResumes, "put").mockRejectedValueOnce(new Error("Save failed"));
+  fireEvent.change(screen.getByLabelText("Professional summary", { exact: true }), { target: { value: "Keep this text." } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(await screen.findByRole("alert", { name: "Resume error" })).toBeVisible();
+  expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveValue("Keep this text.");
+  expect(screen.queryByRole("article", { name: "Saved resume" })).not.toBeInTheDocument();
+  expect((await readResumeRecord(db, resume.id))?.content.summary).toBe(resume.summary);
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
+  expect(screen.getByRole("article", { name: "Saved resume" })).toHaveTextContent("Keep this text.");
+});
+it("explains empty bullets in plain language and keeps the editor open", async () => {
+  await fixture();
+  fireEvent.change(screen.getByLabelText("Bullet 1", { exact: true }), { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(screen.getByRole("alert", { name: "Resume error" })).toHaveTextContent("Employment 1 · Bullet 1: Add text before saving.");
+  expect(screen.getByRole("region", { name: "Resume text editor" })).toBeVisible();
+});
+it("leaves editing without saving when nothing changed, preserving the previous fact check", async () => {
+  const { resume } = await fixture();
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
+  expect(screen.getByRole("article", { name: "Saved resume" })).toBeVisible();
+  expect((await readResumeRecord(db, resume.id))?.content).toEqual(resume);
 });

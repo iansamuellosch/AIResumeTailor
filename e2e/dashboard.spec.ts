@@ -61,15 +61,33 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Integrated REST APIs into React applications.");
   await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
   await expect(page.getByRole("article", { name: "Saved resume" })).toHaveAttribute("data-layout", "classic");
+  const previewBounds = await page.getByRole("article", { name: "Saved resume" }).boundingBox();
+  expect(previewBounds!.y).toBeLessThan(page.viewportSize()!.height - 100);
+  const layoutControl = page.getByRole("button", { name: "Change resume layout", exact: true });
+  if (await layoutControl.isVisible()) await layoutControl.click();
   await page.getByText("Compact", { exact: true }).click();
   await expect(page.getByRole("status", { name: "Resume save status" })).toHaveText("Compact layout saved.");
   await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
   expect(generationCalls).toBe(1); expect(reviewCalls).toBe(1);
   await page.reload();
+  if (await layoutControl.isVisible()) {
+    await expect(layoutControl).toContainText("Compact");
+    await layoutControl.click();
+  }
   await expect(page.getByRole("radio", { name: "Compact", exact: true })).toBeChecked();
   await expect(page.getByRole("article", { name: "Saved resume" })).toHaveAttribute("data-layout", "compact");
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Example Co");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Edit resume", exact: true }).click();
+  await expect(page.getByRole("article", { name: "Saved resume" })).toHaveCount(0);
+  await page.getByLabel("Professional summary", { exact: true }).fill("An edit to discard.");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByLabel("Professional summary", { exact: true })).toHaveValue("An edit to discard.");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("article", { name: "Saved resume" })).not.toContainText("An edit to discard.");
+  await expect(page.getByRole("heading", { name: "Preview", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Edit resume", exact: true }).click();
   await page.getByLabel("Professional summary", { exact: true }).fill("Led an engineering team.");
   await expect(page.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
@@ -77,11 +95,12 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await expect(page.getByRole("status", { name: "Resume save status" })).toContainText("Changes saved locally");
   await page.reload();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Led an engineering team.");
-  await page.getByRole("button", { name: "Check facts & save" }).click();
+  await page.getByRole("button", { name: "Check facts" }).click();
   await expect(page.getByRole("heading", { name: "Unsupported claims require correction" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Factual validation" })).toContainText("Leadership is not supported");
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Restore original", exact: true }).click();
+  await page.getByRole("button", { name: "More resume actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Restore generated version/ }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText(input.profile.summary);
   await expect(page.getByRole("heading", { name: "Changes need factual review" })).toBeVisible();
   await page.getByRole("link", { name: "Return to dashboard", exact: true }).click();
@@ -130,7 +149,7 @@ test("preserves unresolved drafts in history and blocks export", async ({ page }
   await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
   await page.reload();
   await expect(page.getByRole("heading", { name: "Unsupported claims require correction" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Download PDF" })).toBeDisabled();
 });
 
 test("recovers a saved pending draft after reload and retries review without regeneration", async ({ page }) => {
@@ -150,8 +169,8 @@ test("recovers a saved pending draft after reload and retries review without reg
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Review is temporarily unavailable");
   await page.reload();
   await page.getByRole("link", { name: "Open resume", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Export PDF" })).toBeDisabled();
-  await page.getByRole("button", { name: "Check facts & save" }).click();
+  await expect(page.getByRole("button", { name: "Download PDF" })).toBeDisabled();
+  await page.getByRole("button", { name: "Check facts" }).click();
   await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
   expect(writes).toBe(1); expect(reviews).toBe(2);
 });
@@ -176,9 +195,10 @@ test("saves advisory quality warnings, logs their reasons and allows export afte
   await page.getByRole("link", { name: "Open saved resume" }).click();
   await expect(page).toHaveURL(new RegExp(`/resume/${resume.id}$`));
   await page.reload();
+  await page.getByText("Quality suggestions (1)", { exact: true }).click();
   await expect(page.getByRole("region", { name: "Resume quality warnings" })).toContainText(warning);
   await expect(page.getByRole("heading", { name: "Factual checks completed" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Export PDF", exact: true })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Export DOCX", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Download Word", exact: true })).toBeEnabled();
   expect(writes).toBe(1); expect(reviews).toBe(1);
 });

@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import type { GeneratedResume } from "@/schemas/resume";
 import { downloadResume } from "@/lib/export/client";
 import type { ExportFormat } from "@/lib/export/document";
-export function ExportControls({ resume, disabled = false, dirty = false }: { resume: GeneratedResume; disabled?: boolean; dirty?: boolean }) {
+export function ExportControls({ resume, disabled = false, dirty = false, editing = false, compact = false }: { resume: GeneratedResume; disabled?: boolean; dirty?: boolean; editing?: boolean; compact?: boolean }) {
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [message, setMessage] = useState("");
   const locked = useRef(false);
-  const blocked = dirty || resume.validation.status === "pending-semantic-review" || resume.validation.status === "failed";
+  const blocked = editing || dirty || resume.validation.status === "pending-semantic-review" || resume.validation.status === "failed";
+  const help = editing ? "Save your changes or cancel editing to return to the preview." : dirty ? "Save your edits before downloading." : resume.validation.status === "failed" ? "Correct the flagged claims and check facts again before downloading." : "Run a fact check before downloading this resume.";
   async function exportDocument(format: ExportFormat) {
     if (locked.current || blocked || disabled) return;
     locked.current = true; setBusy(true); setError(""); setMessage("");
@@ -20,10 +21,10 @@ export function ExportControls({ resume, disabled = false, dirty = false }: { re
   }
   return <section aria-label="Resume export" className="space-y-3 rounded-xl border bg-card p-5">
     <h2 className="font-semibold">Download your resume</h2>
-    <p className="text-sm text-muted-foreground">Files are created on your device. Review the preview and any validation warnings before using your resume.</p>
-    {resume.validation.status === "needs-review" && <details><summary className="cursor-pointer text-sm font-medium">Validation warnings to review</summary><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{resume.validation.issues.map((issue) => <li key={issue.id}>{issue.message}</li>)}</ul></details>}
-    {blocked && <p id={`export-help-${resume.id}`} className="text-sm text-muted-foreground">Save your edits, then check facts and resolve errors to enable PDF and DOCX export.</p>}
-    <div className="flex flex-wrap gap-2"><Button disabled={disabled || blocked || busy} aria-describedby={blocked ? `export-help-${resume.id}` : undefined} onClick={() => void exportDocument("pdf")}>Export PDF</Button><Button variant="outline" disabled={disabled || blocked || busy} aria-describedby={blocked ? `export-help-${resume.id}` : undefined} onClick={() => void exportDocument("docx")}>Export DOCX</Button></div>
+    <p className="text-sm text-muted-foreground">{compact ? "Download the layout shown in the preview." : "Files are created on your device. Review your resume and any warnings before using it."}</p>
+    {!compact && resume.validation.status === "needs-review" && <details><summary className="cursor-pointer text-sm font-medium">Validation warnings to review</summary><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{resume.validation.issues.map((issue) => <li key={issue.id}>{issue.message}</li>)}</ul></details>}
+    {blocked && <p id={`export-help-${resume.id}`} className="text-sm text-muted-foreground">{help}</p>}
+    <div className={compact ? "grid gap-2" : "flex flex-wrap gap-2"}><Button disabled={disabled || blocked || busy} aria-describedby={blocked ? `export-help-${resume.id}` : undefined} onClick={() => void exportDocument("pdf")}>Download PDF</Button><Button variant="outline" disabled={disabled || blocked || busy} aria-describedby={blocked ? `export-help-${resume.id}` : undefined} onClick={() => void exportDocument("docx")}>Download Word</Button></div>
     <p role="status" aria-label="Export status" className="text-sm">{busy ? "Preparing document…" : message}</p>
     {error && <p role="alert" aria-label="Export error" className="text-sm text-destructive">{error}</p>}
   </section>;

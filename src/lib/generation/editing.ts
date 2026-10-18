@@ -42,3 +42,14 @@ export function replaceResumeText(resume: GeneratedResume, path: string, text: s
 export function pendingValidation(): GeneratedResume["validation"] {
   return { status: "pending-semantic-review", issues: [] };
 }
+
+/** Use editor labels rather than schema paths when explaining invalid edits. */
+export function resumeEditError(resume: GeneratedResume, issues: readonly import("zod").z.core.$ZodIssue[]): string {
+  const fields = editableResumeFields(resume);
+  return issues.map((issue) => {
+    const field = fields.find((entry) => entry.path === issue.path.join("."));
+    if (!field) return "Some saved resume information is invalid. Reload the saved version and try again.";
+    const instruction = issue.code === "too_small" ? "Add text before saving." : issue.code === "too_big" ? `Use ${Number(issue.maximum).toLocaleString("en-US")} characters or fewer.` : /url$/i.test(field.path) ? "Enter a complete link starting with https:// or http://." : /email$/i.test(field.path) ? "Enter a valid email address." : "Check this value before saving.";
+    return `${field.group} · ${field.label}: ${instruction}`;
+  }).join(" ");
+}
