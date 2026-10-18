@@ -28,7 +28,7 @@ it("keeps oversized pasted text editable and explains how to correct it before s
   const pasted = "x".repeat(210_000);
   fireEvent.input(summary, { target: { textContent: pasted } });
   expect(summary.textContent).toBe(pasted);
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("characters or fewer");
   expect(summary).toHaveFocus();
   expect((await readResumeRecord(db, resume.id))?.content.summary).toBe(resume.summary);
@@ -39,7 +39,7 @@ it("saves owner edits without an AI call or changing the approved profile", asyn
   await saveProfile(db, changedProfile);
   fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Develops applications with React." } });
   expect(screen.queryByRole("button", { name: /Check facts|Recheck facts/ })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
   expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Download Word" })).toBeEnabled();
@@ -53,7 +53,7 @@ it("lets saved owner edits download even when Gemini is unavailable", async () =
   const { resume } = await fixture();
   vi.mocked(requestResumeValidation).mockRejectedValue(new Error("AI review unavailable."));
   fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Owner supplied information." } });
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   await waitFor(() => expect(screen.getByRole("article", { name: "Saved resume" })).toBeVisible());
   expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Download Word" })).toBeEnabled();
@@ -66,7 +66,7 @@ it("blocks stale tab saves without discarding local text", async () => {
   const { resume } = await fixture();
   await updateGeneratedResume(db, { ...resume, summary: "Newer tab's summary." }, resume.updatedAt);
   fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Stale tab's edits." } });
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   expect(await screen.findByRole("alert", { name: "Resume error" })).toHaveTextContent("another tab");
   expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Stale tab's edits.");
   expect((await readResumeRecord(db, resume.id))?.content.summary).toBe("Newer tab's summary.");
@@ -83,7 +83,7 @@ it("blocks stale tab saves without discarding local text", async () => {
 it("allows editing a legacy resume without its source snapshot or a new AI check", async () => {
   await fixture(false);
   fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Updated by the owner." } });
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled());
   expect(requestResumeValidation).not.toHaveBeenCalled();
 });
@@ -99,7 +99,7 @@ it("saves a layout while preserving unsaved text and its export guard without ca
   expect(record?.content.summary).toBe(resume.summary);
   expect(record?.content.validation).toEqual(resume.validation);
   expect(requestResumeValidation).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   await waitFor(() => expect(screen.getByRole("status", { name: "Resume save status" })).toHaveTextContent("Changes saved locally"));
   const saved = await readResumeRecord(db, resume.id);
   expect(saved?.content.summary).toBe("Unsaved text remains here.");
@@ -127,26 +127,26 @@ it("stays in the editor after a failed save and returns to preview after retry",
   const { resume } = await fixture();
   vi.spyOn(db.generatedResumes, "put").mockRejectedValueOnce(new Error("Save failed"));
   fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Keep this text." } });
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   expect(await screen.findByRole("alert", { name: "Resume error" })).toBeVisible();
   expect(screen.getByLabelText("Professional summary", { exact: true })).toHaveTextContent("Keep this text.");
   expect(screen.queryByRole("article", { name: "Saved resume" })).not.toBeInTheDocument();
   expect((await readResumeRecord(db, resume.id))?.content.summary).toBe(resume.summary);
   expect(screen.queryByRole("button", { name: "Reload saved version" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   await waitFor(() => expect(screen.queryByRole("region", { name: "Resume text editor" })).not.toBeInTheDocument());
   expect(screen.getByRole("article", { name: "Saved resume" })).toHaveTextContent("Keep this text.");
 });
 it("explains empty bullets in plain language and keeps the editor open", async () => {
   await fixture();
   fireEvent.input(screen.getByLabelText("Employment 1: Bullet 1", { exact: true }), { target: { textContent: "" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   expect(screen.getByRole("alert", { name: "Resume error" })).toHaveTextContent("Employment 1 · Bullet 1: Add text before saving.");
   expect(screen.getByRole("region", { name: "Resume text editor" })).toBeVisible();
 });
 it("leaves editing without saving when nothing changed, preserving the previous fact check", async () => {
   const { resume } = await fixture();
-  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   expect(screen.getByRole("article", { name: "Saved resume" })).toBeVisible();
   expect((await readResumeRecord(db, resume.id))?.content).toEqual(resume);
 });
@@ -156,9 +156,9 @@ it("retains the saved fact check when in-place text is restored to its saved val
   const summary = screen.getByRole("textbox", { name: "Professional summary" });
   fireEvent.input(summary, { target: { textContent: "A temporary edit." } });
   fireEvent.input(summary, { target: { textContent: resume.summary } });
-  expect(screen.getByRole("button", { name: "Done editing" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Save edits" })).toBeEnabled();
   expect(screen.queryByRole("region", { name: "Factual validation" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   expect((await readResumeRecord(db, resume.id))?.content).toEqual(resume);
   expect(requestResumeValidation).not.toHaveBeenCalled();
 });
@@ -177,7 +177,7 @@ it("keeps local edits if the conflicting resume was deleted or reloading fails",
   const { resume } = await fixture();
   await db.generatedResumes.delete(resume.id);
   fireEvent.input(screen.getByLabelText("Professional summary", { exact: true }), { target: { textContent: "Keep this local copy." } });
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save edits" }));
   const reload = await screen.findByRole("button", { name: "Reload saved version" });
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
   fireEvent.click(reload);

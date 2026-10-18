@@ -91,7 +91,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await page.getByRole("button", { name: "Edit resume", exact: true }).click();
   await page.getByLabel("Professional summary", { exact: true }).fill("Led an engineering team.");
   await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("button", { name: "Save edits", exact: true }).click();
   await expect(page.getByRole("status", { name: "Resume save status" })).toContainText("Changes saved locally");
   await page.reload();
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Led an engineering team.");
@@ -244,7 +244,7 @@ test("edits resume text in place with stable caret, plain paste, multiline bulle
   await expect(summary).toHaveText("Refined React interfaces.");
   const bullet = page.getByRole("textbox", { name: "Employment 1: Bullet 1", exact: true });
   await bullet.fill("");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("button", { name: "Save edits", exact: true }).click();
   await expect(page.getByRole("alert", { name: "Resume error", exact: true })).toContainText("Add text before saving.");
   await expect(bullet).toBeFocused();
   await bullet.fill("Integrated REST APIs."); await bullet.press("End"); await bullet.press("Enter"); await page.keyboard.type("Maintained React interfaces.");
@@ -254,7 +254,7 @@ test("edits resume text in place with stable caret, plain paste, multiline bulle
   await expect(graduation).toHaveText("Jun 2022");
   expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("in-place-editor.png"), fullPage: true });
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("button", { name: "Save edits", exact: true }).click();
   await expect(page.getByRole("article", { name: "Saved resume", exact: true })).toContainText("Refined React interfaces.");
   await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeEnabled();
   expect(reviewCalls).toBe(1);

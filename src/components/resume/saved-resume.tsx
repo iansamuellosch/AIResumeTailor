@@ -39,13 +39,14 @@ export function SavedResume({ id }: { id: string }) {
   }, [layoutsExpanded, busy]);
   const lock = useRef(false);
   const workspaceTitle = useRef<HTMLHeadingElement>(null);
+  const workspaceHeader = useRef<HTMLElement>(null);
   const previousMode = useRef(false);
   const [activity, setActivity] = useState("");
   useEffect(() => {
     if (previousMode.current === editing) return;
     previousMode.current = editing;
     workspaceTitle.current?.focus({ preventScroll: true });
-    workspaceTitle.current?.scrollIntoView?.({ block: "start" });
+    workspaceHeader.current?.scrollIntoView?.({ block: "start" });
   }, [editing]);
   useEffect(() => {
     let active = true;
@@ -113,13 +114,13 @@ export function SavedResume({ id }: { id: string }) {
   if (!loaded) return <div className="space-y-6"><h1 className="text-3xl font-semibold tracking-tight">Resume preview</h1><p role="status">Loading saved resume…</p></div>;
   if (!resume) return <div className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight">Resume preview</h1>{error && <p role="alert">{error}</p>}<p>No saved resume could be loaded in this browser. <Link href="/dashboard" className="underline">Return to dashboard</Link></p></div>;
   return <div className="space-y-6">
-    <header className={`${editing ? "sticky top-0 z-20 bg-background py-3" : ""} space-y-2`}>
+    <header ref={workspaceHeader} className={`${editing ? "sticky top-0 z-20 bg-background" : ""} space-y-2 py-3`}>
       <div className="flex items-center justify-between gap-3">
         <h1 ref={workspaceTitle} tabIndex={-1} className="min-w-0 text-xl font-semibold tracking-tight focus:outline-none sm:text-3xl">{editing ? "Edit resume" : "Resume preview"}</h1>
         <div className="flex shrink-0 items-center gap-2">
           {editing ? <>
             <Button variant="outline" disabled={busy} onClick={cancelEditing}>Cancel</Button>
-            <Button disabled={busy} onClick={() => void save()}>{activity === "Saving changes…" && busy ? "Saving…" : dirty ? "Save changes" : "Done editing"}</Button>
+            <Button disabled={busy} onClick={() => void save()}>{activity === "Saving changes…" && busy ? "Saving…" : "Save edits"}</Button>
           </> : <Button disabled={busy} onClick={() => setEditing(true)}>Edit resume</Button>}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild><Button variant="outline" size="icon" disabled={busy} aria-label="More resume actions"><Ellipsis aria-hidden="true" /></Button></DropdownMenu.Trigger>
@@ -129,7 +130,8 @@ export function SavedResume({ id }: { id: string }) {
           </DropdownMenu.Root>
         </div>
       </div>
-      {(editing || busy || message) && <p role="status" aria-label="Resume save status" className="text-xs text-muted-foreground">{busy ? activity : dirty ? "Unsaved resume changes" : message || "Resume saved locally"}</p>}
+      {editing && <p className="text-sm text-muted-foreground">Click text on the resume to edit it. Save edits to return to the preview. Your profile stays unchanged.</p>}
+      {(busy || dirty || message) && <p role="status" aria-label="Resume save status" className={busy || message ? "text-xs text-muted-foreground" : "sr-only"}>{busy ? activity : dirty ? "Unsaved resume changes" : message}</p>}
     </header>
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:grid-rows-[auto_1fr]">
       <div className="rounded-xl border bg-card p-3 lg:col-start-2 lg:row-start-1 lg:p-4">
@@ -137,7 +139,6 @@ export function SavedResume({ id }: { id: string }) {
         <div id="resume-layout-options" className={`${layoutsExpanded ? "mt-3" : "hidden"} lg:mt-0 lg:block`}>
           <LayoutPicker value={resume.settings.template} onChange={(template) => void changeLayout(template)} disabled={busy} compact />
         </div>
-        <p className="mt-3 hidden text-xs leading-5 text-muted-foreground lg:block">Layout saves automatically. Your wording stays the same.</p>
       </div>
       <section aria-label="Resume workspace" className="min-w-0 scroll-mt-4 space-y-4 lg:col-start-1 lg:row-start-1 lg:row-span-2">
         {(error || saveConflict) && <div className="space-y-3 rounded-lg border border-destructive p-4"><p role="alert" aria-label="Resume error" className="text-sm text-destructive">{error || "This copy is out of date. Reload the saved version before saving."}</p>{saveConflict && <Button variant="outline" disabled={busy} onClick={() => void reload()}>Reload saved version</Button>}</div>}

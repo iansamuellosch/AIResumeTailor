@@ -11,7 +11,6 @@ export function ResumeEditor({ resume, disabled, onChange }: { resume: Generated
   // summary fields, so deletion never unmounts a textbox or loses its focus.
   const [retainedPaths] = useState(() => new Set([...fields.filter((field) => field.value.trim()).map((field) => field.path), "contact.fullName", "headline", "summary"]));
   return <section aria-label="Resume text editor" className="space-y-3">
-    <p className="text-sm text-muted-foreground">Click text on the resume to edit it. Save to return to the preview. Your profile stays unchanged.</p>
     <p id="inline-date-help" className="sr-only">Use a month and year, such as Apr 2023 or 2023-04.</p>
     <ResumeDocument resume={resume} retainedPaths={retainedPaths} renderPart={(part) => {
       const field = fields.find((entry) => entry.path === part.path);

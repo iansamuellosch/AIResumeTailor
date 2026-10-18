@@ -39,7 +39,7 @@ test(`${layout}: upload, approve, tailor, validate, edit, export both formats, a
   await expect(page.getByRole("article", { name: "Saved resume" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("resume-editor.png"), fullPage: true });
   await expect(page.getByRole("button", { name: /Check facts|Recheck facts/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("button", { name: "Save edits", exact: true }).click();
   await expect(page.getByRole("region", { name: "Resume text editor" })).toHaveCount(0);
   await expect(page.getByRole("article", { name: "Saved resume" })).toContainText("Develops applications with React.");
   expect(reviewCalls).toBe(1);
