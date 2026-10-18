@@ -37,3 +37,10 @@
 @font-face { font-family: Resume Serif; src: url("/fonts/NotoSerif-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
 .resume-document { font-family: Resume Sans, Arial, sans-serif; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
+
+.resume-inline-text { cursor: text; border-radius: 2px; outline: 1px solid transparent; outline-offset: 2px; overflow-wrap: anywhere; scroll-margin-top: 10rem; }
+.resume-inline-text:hover { background: #f1f6fc; outline-color: #d7e1ec; }
+.resume-inline-text:focus { background: #f1f6fc; outline: 2px solid #3b6f9c; }
+.resume-inline-text:empty { display: inline-block; min-width: 3ch; }
+.resume-inline-text:empty::before { content: attr(data-placeholder); color: #64748b; font-weight: 400; }
+.resume-inline-text[aria-disabled="true"] { cursor: default; }

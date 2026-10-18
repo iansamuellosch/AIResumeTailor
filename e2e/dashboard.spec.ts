@@ -1,10 +1,10 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { tailoringInput, selection } from "../tests/fixtures/tailoring";
 import { assembleResume } from "../src/lib/generation/assemble";
 import { selectEvidence } from "../src/lib/generation/evidence";
 
-async function seedApprovedProfile(page: Page) {
-  const input = tailoringInput();
+async function seedApprovedProfile(page: Page, input = tailoringInput()) {
   await page.goto("/");
   await expect(page.getByRole("contentinfo").getByRole("status")).toContainText("Local storage ready");
   await page.evaluate(async (profile) => new Promise<void>((resolve, reject) => {
@@ -83,7 +83,7 @@ test("tailors an approved profile, saves locally, and recovers a readable result
   await page.getByLabel("Professional summary", { exact: true }).fill("An edit to discard.");
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByLabel("Professional summary", { exact: true })).toHaveValue("An edit to discard.");
+  await expect(page.getByLabel("Professional summary", { exact: true })).toHaveText("An edit to discard.");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("article", { name: "Saved resume" })).not.toContainText("An edit to discard.");
@@ -201,4 +201,70 @@ test("saves advisory quality warnings, logs their reasons and allows export afte
   await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Download Word", exact: true })).toBeEnabled();
   expect(writes).toBe(1); expect(reviews).toBe(1);
+});
+
+
+test("edits resume text in place with stable caret, plain paste, multiline bullets and dates", async ({ page }, testInfo) => {
+  const input = tailoringInput();
+  input.profile.education = [{ id: "education-inline", institution: "Example University", degree: "Bachelor of Science", fieldOfStudy: "Computer Science", startDate: "2018-09", graduationDate: "2022-05", honors: [], relevantCoursework: [] }];
+  await seedApprovedProfile(page, input);
+  const resume = assembleResume(input, selectEvidence(input.profile, input.jobAnalysis, input.settings), { ...selection(), educationIds: ["education-inline"] });
+  let reviewCalls = 0;
+  await page.route("**/api/generate-resume", (route) => route.fulfill({ json: { success: true, data: { resume } } }));
+  await page.route("**/api/validate-resume", async (route) => {
+    reviewCalls++;
+    await route.fulfill({ json: { success: true, data: { resume: { ...route.request().postDataJSON().resume, validation: { status: "passed", checkedAt: new Date().toISOString(), issues: [] } } } } });
+  });
+  await page.goto("/dashboard");
+  await page.getByLabel("Job description", { exact: true }).fill("Seeking a React engineer integrating REST APIs.");
+  await page.getByRole("button", { name: "Generate Tailored Resume", exact: true }).click();
+  await page.getByRole("link", { name: "Open saved resume", exact: true }).click();
+  await page.getByRole("button", { name: "Edit resume", exact: true }).click();
+  await expect(page.getByRole("article", { name: "Editable resume", exact: true })).toBeVisible();
+  const summary = page.getByRole("textbox", { name: "Professional summary", exact: true });
+  await summary.fill("Builds React apps.");
+  await summary.evaluate((node) => {
+    node.focus(); const range = document.createRange(); range.setStart(node.firstChild!, 7); range.collapse(true);
+    const selected = window.getSelection()!; selected.removeAllRanges(); selected.addRange(range);
+  });
+  await page.keyboard.type("accessible ");
+  await expect(summary).toHaveText("Builds accessible React apps.");
+  await summary.evaluate((node) => {
+    node.focus(); const range = document.createRange(); range.selectNodeContents(node);
+    const selected = window.getSelection()!; selected.removeAllRanges(); selected.addRange(range);
+    const clipboard = new DataTransfer(); clipboard.setData("text/plain", "Refined React interfaces."); clipboard.setData("text/html", '<b>Refined React interfaces.</b><img src="x" onerror="window.inlinePasteInjected=true">');
+    node.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  });
+  await expect(summary).toHaveText("Refined React interfaces.");
+  await expect(summary.locator("b, img")).toHaveCount(0);
+  await summary.press("ControlOrMeta+z");
+  await expect(summary).toHaveText("Builds accessible React apps.");
+  await summary.press("ControlOrMeta+Shift+z");
+  await expect(summary).toHaveText("Refined React interfaces.");
+  const bullet = page.getByRole("textbox", { name: "Employment 1: Bullet 1", exact: true });
+  await bullet.fill("");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("alert", { name: "Resume error", exact: true })).toContainText("Add text before saving.");
+  await expect(bullet).toBeFocused();
+  await bullet.fill("Integrated REST APIs."); await bullet.press("End"); await bullet.press("Enter"); await page.keyboard.type("Maintained React interfaces.");
+  await expect(bullet).toHaveText("Integrated REST APIs.\nMaintained React interfaces.");
+  const graduation = page.getByRole("textbox", { name: "Education 1: Graduation Date", exact: true });
+  await graduation.fill("June 2022"); await graduation.press("Tab");
+  await expect(graduation).toHaveText("Jun 2022");
+  expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath("in-place-editor.png"), fullPage: true });
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("article", { name: "Saved resume", exact: true })).toContainText("Refined React interfaces.");
+  await expect(page.getByRole("button", { name: "Download PDF", exact: true })).toBeDisabled();
+  expect(reviewCalls).toBe(1);
+  const record = await page.evaluate(async (id) => new Promise<{ content: typeof resume; originalContent: typeof resume }>((resolve, reject) => {
+    const open = indexedDB.open("ai-resume-tailor"); open.onerror = () => reject(open.error);
+    open.onsuccess = () => { const db = open.result; const tx = db.transaction("generatedResumes"); const read = tx.objectStore("generatedResumes").get(id); tx.oncomplete = () => { db.close(); resolve(read.result); }; tx.onerror = () => reject(tx.error); };
+  }), resume.id);
+  expect(record.content.education[0].graduationDate).toBe("2022-06");
+  expect(record.content.experience[0].bullets[0]).toEqual({ ...resume.experience[0].bullets[0], text: "Integrated REST APIs.\nMaintained React interfaces." });
+  expect(record.originalContent.summary).toBe(resume.summary);
+  await page.reload(); await page.getByRole("button", { name: "Edit resume", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Professional summary", exact: true })).toHaveText("Refined React interfaces.");
+  await expect(page.getByRole("textbox", { name: "Education 1: Graduation Date", exact: true })).toHaveText("Jun 2022");
 });

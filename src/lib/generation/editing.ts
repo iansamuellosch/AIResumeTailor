@@ -49,7 +49,14 @@ export function resumeEditError(resume: GeneratedResume, issues: readonly import
   return issues.map((issue) => {
     const field = fields.find((entry) => entry.path === issue.path.join("."));
     if (!field) return "Some saved resume information is invalid. Reload the saved version and try again.";
-    const instruction = issue.code === "too_small" ? "Add text before saving." : issue.code === "too_big" ? `Use ${Number(issue.maximum).toLocaleString("en-US")} characters or fewer.` : /url$/i.test(field.path) ? "Enter a complete link starting with https:// or http://." : /email$/i.test(field.path) ? "Enter a valid email address." : "Check this value before saving.";
+    const instruction = issue.code === "too_small" ? "Add text before saving." : issue.code === "too_big" ? `Use ${Number(issue.maximum).toLocaleString("en-US")} characters or fewer.` : /Date$/.test(field.path) && issue.code === "invalid_format" ? "Enter a month and year, such as Apr 2023." : issue.code === "custom" ? issue.message : /url$/i.test(field.path) ? "Enter a complete link starting with https:// or http://." : /email$/i.test(field.path) ? "Enter a valid email address." : "Check this value before saving.";
     return `${field.group} · ${field.label}: ${instruction}`;
   }).join(" ");
+}
+
+/** Restoring the saved wording (including via undo) can retain its factual review. */
+export function resumeTextHasChanges(current: GeneratedResume, saved: GeneratedResume): boolean {
+  const previous = new Map(editableResumeFields(saved).map((field) => [field.path, field.value]));
+  const fields = editableResumeFields(current);
+  return fields.length !== previous.size || fields.some((field) => field.value !== previous.get(field.path));
 }

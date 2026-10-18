@@ -1,16 +1,24 @@
 "use client";
+import { useState } from "react";
 import type { GeneratedResume } from "@/schemas/resume";
 import { editableResumeFields, replaceResumeText, pendingValidation } from "@/lib/generation/editing";
+import { ResumeDocument } from "./resume-document";
+import { InlineResumeText } from "./inline-resume-text";
+
 export function ResumeEditor({ resume, disabled, onChange }: { resume: GeneratedResume; disabled: boolean; onChange: (resume: GeneratedResume) => void }) {
   const fields = editableResumeFields(resume);
-  const groups = [...new Set(fields.map((field) => field.group))];
+  // Keep originally visible fields in place when cleared, including empty core
+  // summary fields, so deletion never unmounts a textbox or loses its focus.
+  const [retainedPaths] = useState(() => new Set([...fields.filter((field) => field.value.trim()).map((field) => field.path), "contact.fullName", "headline", "summary"]));
   return <section aria-label="Resume text editor" className="space-y-3">
-    <p className="text-sm text-muted-foreground">Edit the wording for this resume. Your profile stays unchanged. Save your changes to return to the preview.</p>
-    {groups.map((group) => <details key={group} open={group === "Summary"} className="rounded-xl border bg-card p-4"><summary className="cursor-pointer font-semibold">{group}</summary><div className="mt-4 grid gap-4 sm:grid-cols-2">
-      {fields.filter((field) => field.group === group).map((field) => {
-        const common = { id: `edit-${field.path}`, value: field.value, maxLength: 10000, disabled, className: "mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring", onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange({ ...replaceResumeText(resume, field.path, event.target.value), validation: pendingValidation() }) };
-        return <div key={field.path} className={field.multiline ? "sm:col-span-2" : ""}><label htmlFor={common.id} className="text-sm font-medium capitalize">{field.label}</label>{field.multiline ? <textarea {...common} rows={3} /> : <input {...common} />}</div>;
-      })}
-    </div></details>)}
+    <p className="text-sm text-muted-foreground">Click text on the resume to edit it. Save to return to the preview. Your profile stays unchanged.</p>
+    <p id="inline-date-help" className="sr-only">Use a month and year, such as Apr 2023 or 2023-04.</p>
+    <ResumeDocument resume={resume} retainedPaths={retainedPaths} renderPart={(part) => {
+      const field = fields.find((entry) => entry.path === part.path);
+      if (!field) return part.text;
+      const label = field.label.charAt(0).toUpperCase() + field.label.slice(1);
+      const name = ["Contact", "Summary"].includes(field.group) ? label : `${field.group}: ${label}`;
+      return <InlineResumeText id={`edit-${field.path}`} value={field.value} label={name} date={/Date$/.test(field.path)} multiline={field.multiline} disabled={disabled} onChange={(text) => onChange({ ...replaceResumeText(resume, field.path, text), validation: pendingValidation() })} />;
+    }} />
   </section>;
 }

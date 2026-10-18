@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { getDatabase, readProfile, type StoredResume } from "@/lib/storage/database";
 import { readResumeRecord, updateGeneratedResume, restoreGeneratedResume, updateResumeLayout } from "@/lib/storage/resumes";
 import { generatedResumeSchema, type GeneratedResume } from "@/schemas/resume";
-import { resumeEditError } from "@/lib/generation/editing";
+import { resumeEditError, resumeTextHasChanges } from "@/lib/generation/editing";
+import { resumeBlocks } from "@/lib/export/document";
 import { requestResumeValidation } from "@/lib/generation/client";
 import { ExportControls } from "./export-controls";
 import { ResumeDocument } from "./resume-document";
@@ -69,11 +70,13 @@ export function SavedResume({ id }: { id: string }) {
     if (!resume || !record || lock.current) return;
     if (!review && !dirty) { setEditing(false); return; }
     const parsed = generatedResumeSchema.safeParse(resume);
-    if (!parsed.success) { setError(resumeEditError(resume, parsed.error.issues)); return; }
+    if (!parsed.success) { setError(resumeEditError(resume, parsed.error.issues)); const path = parsed.error.issues[0]?.path.join("."); if (path) document.getElementById(`edit-${path}`)?.focus(); return; }
+    if (!review && !resumeTextHasChanges(parsed.data, record.content)) { accept(record); setMessage("No text changes to save."); return; }
     lock.current = true; setBusy(true); setActivity(review ? "Checking facts…" : "Saving changes…"); setError(""); setMessage("");
     controller.current = new AbortController();
     try {
       let content = parsed.data;
+      resumeBlocks(content);
       if (review) {
         const source = record.sourceProfile ?? await readProfile(getDatabase(), "verified");
         if (!source || source.id !== content.profileId || source.version !== content.profileVersion) throw new Error("The approved source profile for this resume is unavailable. Edits can still be saved as unreviewed. Generate a new resume from your current profile to validate against it.");
@@ -149,7 +152,7 @@ export function SavedResume({ id }: { id: string }) {
           <p role="status" aria-label="Resume save status" className="text-xs text-muted-foreground">{busy ? activity : dirty ? "Unsaved resume changes" : message || "Resume saved locally"}</p>
         </div>
         {error && <p role="alert" aria-label="Resume error" className="rounded-lg border border-destructive p-4 text-sm text-destructive">{error}</p>}
-        {editing ? <ResumeEditor resume={resume} disabled={busy} onChange={(value) => { setResume(value); setDirty(true); setMessage(""); setError(""); }} /> : <ResumeDocument resume={resume} />}
+        {editing ? <ResumeEditor resume={resume} disabled={busy} onChange={(value) => { const changed = !record || resumeTextHasChanges(value, record.content); setResume(changed ? value : { ...value, validation: record!.content.validation }); setDirty(changed); setMessage(""); setError(""); }} /> : <ResumeDocument resume={resume} />}
       </section>
       <aside aria-label="Review and download" className="space-y-4 lg:col-start-2 lg:row-start-2">
         <ValidationPanel resume={resume} compact>
