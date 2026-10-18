@@ -205,7 +205,7 @@ test("navigation saves pending changes and the dashboard requires approval", asy
   await page.getByRole("link", { name: "Review profile", exact: true }).click();
   await page.getByRole("button", { name: "Start from scratch" }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Pending Navigation");
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Privacy & data" }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await openProfile(page);
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Pending Navigation");

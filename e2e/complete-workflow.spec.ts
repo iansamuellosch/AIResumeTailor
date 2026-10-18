@@ -65,7 +65,7 @@ test("profile backups import for review and destructive actions require confirma
   await page.goto("/settings");
   await page.getByLabel("Restore a profile backup", { exact: true }).setInputFiles({ name: "profile.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(profile)) });
   await expect(page).toHaveURL(/\/profile$/); await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe");
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Privacy & data", exact: true }).click();
   const draftDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download profile backup", exact: true }).click();
   const draftBackup = JSON.parse(await readFile((await (await draftDownload).path())!, "utf8"));
@@ -73,7 +73,7 @@ test("profile backups import for review and destructive actions require confirma
   expect(draftBackup.unfinishedProfile.personalInfo.fullName).toBe("Alex Doe");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Profile", exact: true }).click();
   await page.getByRole("button", { name: "Save & Continue", exact: true }).click(); await expect(page).toHaveURL(/\/dashboard$/);
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Privacy & data", exact: true }).click();
   await expect(page.getByRole("main")).not.toContainText("IndexedDB");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("settings.png"), fullPage: true });
@@ -82,7 +82,7 @@ test("profile backups import for review and destructive actions require confirma
   expect(backup.unfinishedProfile).toBeUndefined();
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Profile", exact: true }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Alex Doe — unfinished edit");
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Privacy & data", exact: true }).click();
   const combinedDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download profile backup", exact: true }).click();
   const combinedBackup = JSON.parse(await readFile((await (await combinedDownload).path())!, "utf8"));
@@ -93,7 +93,7 @@ test("profile backups import for review and destructive actions require confirma
   await page.getByLabel("Restore a profile backup", { exact: true }).setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(combinedBackup)) });
   await expect(page).toHaveURL(/\/profile$/);
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Alex Doe — unfinished edit");
-  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Privacy & data", exact: true }).click();
   await page.getByLabel("Restore a profile backup", { exact: true }).setInputFiles({ name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"invalid":true}') });
   await expect(page.getByRole("alert", { name: "Local data error" })).toContainText("not a supported profile backup");
   const cancelRestore = page.waitForEvent("dialog");

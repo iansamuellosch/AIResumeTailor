@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function SettingsPage() {
   return <div className="max-w-2xl space-y-6">
     <div className="space-y-2">
-      <h1 className="text-3xl font-semibold tracking-tight">Privacy & local data</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Privacy & data</h1>
       <p className="leading-7 text-muted-foreground">Manage your saved information and how it’s used.</p>
     </div>
     <Card>

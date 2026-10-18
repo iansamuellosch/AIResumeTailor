@@ -9,7 +9,7 @@ test("navigation, browser storage, and foundation routes work", async ({ page },
   await page.getByRole("contentinfo").getByRole("link", { name: "Privacy details" }).click();
   await expect(page).toHaveURL(/\/settings#ai-processing$/);
   await expect(page.getByText("External AI processing", { exact: true })).toBeVisible();
-  for (const [label, heading] of [["Profile", "Start with your resume"], ["Dashboard", "Your next opportunity"], ["Settings", "Privacy & local data"]]) {
+  for (const [label, heading] of [["Profile", "Start with your resume"], ["Dashboard", "Your next opportunity"], ["Privacy & data", "Privacy & data"]]) {
     await page.getByRole("navigation").getByRole("link", { name: label }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
     await expect(page.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
-const links = [{ href: "/profile", label: "Profile" }, { href: "/dashboard", label: "Dashboard" }, { href: "/settings", label: "Settings" }];
+const links = [{ href: "/profile", label: "Profile" }, { href: "/dashboard", label: "Dashboard" }, { href: "/settings", label: "Privacy & data" }];
 export function Navigation() {
   const pathname = usePathname();
   return <header className="border-b bg-background">
